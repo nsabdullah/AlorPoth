@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>আলোর পথ | AlorPoth</title>
+<meta name="description" content="আয়াত, হাদিস ও বিশদ ব্যাখ্যাসহ আলোর পথের ইসলামী জ্ঞান ভান্ডার" />
+<meta name="theme-color" content="#0B3D2E" />
+
+<!-- Fonts: Fraunces (headings) / Inter (UI) / Noto Naskh Arabic (Quran & Hadith text) / Noto Sans Bengali -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=Noto+Naskh+Arabic:wght@500;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          paper:   '#F5F3EC',
+          ink:     '#20261F',
+          slate:   {
+            50:'#F7F6F2', 100:'#EFEDE4', 200:'#DEDACB', 300:'#C4BFAB',
+            500:'#7C7A6C', 600:'#5C5A4F', 700:'#454337'
+          },
+          emerald: {
+            50:'#EAF3EE', 100:'#CFE5D8', 300:'#5F9C7E', 500:'#1F6B47',
+            600:'#155338', 700:'#0F3D2E', 800:'#0A2E22', 900:'#071F17'
+          },
+          gold: { 300:'#E7C468', 500:'#C9A227', 600:'#A8841C' }
+        },
+        fontFamily: {
+          display: ['"Fraunces"', 'serif'],
+          sans: ['"Inter"', '"Noto Sans Bengali"', 'sans-serif'],
+          arabic: ['"Noto Naskh Arabic"', 'serif']
+        },
+        boxShadow: {
+          card: '0 1px 2px rgba(15,61,46,0.06), 0 8px 24px -12px rgba(15,61,46,0.18)'
+        }
+      }
+    }
+  }
+</script>
+
+<style>
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', 'Noto Sans Bengali', sans-serif; }
+  .font-bn { font-family: 'Noto Sans Bengali', 'Inter', sans-serif; }
+  .font-ar { font-family: 'Noto Naskh Arabic', serif; }
+
+  /* subtle 8-point star lattice — a real Islamic geometric motif, used once, sparingly */
+  .lattice {
+    background-image: radial-gradient(circle at 1px 1px, rgba(201,162,39,0.35) 1px, transparent 1.6px);
+    background-size: 22px 22px;
+  }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #C4BFAB; border-radius: 9999px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  .clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  [data-explain] { max-height: 0; overflow: hidden; transition: max-height .35s ease; }
+  [data-explain].open { max-height: 2000px; }
+
+  .spin { animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .fade-up { animation: fadeUp .45s ease both; }
+  @keyframes fadeUp { from { opacity:0; transform: translateY(8px);} to {opacity:1; transform:none;} }
+
+  :focus-visible { outline: 2px solid #C9A227; outline-offset: 2px; }
+</style>
+</head>
+
+<body class="bg-paper text-ink antialiased min-h-screen">
+
+<!-- ============================= HEADER + STICKY SEARCH ============================= -->
+<header class="sticky top-0 z-40 bg-emerald-800/95 backdrop-blur supports-[backdrop-filter]:bg-emerald-800/90 text-paper shadow-card">
+  <div class="lattice">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 pt-4 pb-4">
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-full bg-gold-500/90 flex items-center justify-center shrink-0">
+            <i data-lucide="moon-star" class="w-4.5 h-4.5 text-emerald-900"></i>
+          </div>
+          <div class="leading-tight">
+            <h1 class="font-display font-semibold text-lg sm:text-xl tracking-tight">আলোর পথ <span class="text-gold-300 font-normal">· AlorPoth</span></h1>
+            <p class="text-[11px] sm:text-xs text-emerald-100/70">কুরআন, হাদিস ও ব্যাখ্যার জ্ঞানভান্ডার</p>
+          </div>
+        </div>
+        <div id="conn-badge" class="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-emerald-700/60 text-emerald-100/90">
+          <span id="conn-dot" class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+          <span id="conn-text">সংযুক্ত হচ্ছে…</span>
+        </div>
+      </div>
+
+      <!-- Search bar -->
+      <div class="relative">
+        <i data-lucide="search" class="w-4.5 h-4.5 text-emerald-700 absolute left-4 top-1/2 -translate-y-1/2"></i>
+        <input
+          id="search-input"
+          type="text"
+          placeholder="আয়াত, হাদিস, বিষয় বা কীওয়ার্ড দিয়ে খুঁজুন…"
+          class="w-full bg-paper text-ink placeholder:text-slate-500 rounded-2xl pl-11 pr-11 py-3.5 text-[15px] font-bn shadow-card focus:outline-none focus:ring-2 focus:ring-gold-500"
+        />
+        <button id="clear-search" class="hidden absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-emerald-700">
+          <i data-lucide="x-circle" class="w-4.5 h-4.5"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Topic + type filter pills -->
+  <div class="max-w-5xl mx-auto px-4 sm:px-6 pb-3.5 overflow-x-auto">
+    <div id="topic-pills" class="flex items-center gap-2 min-w-max">
+      <!-- injected -->
+    </div>
+  </div>
+</header>
+
+<!-- Sub-category (source type) filter row -->
+<div class="max-w-5xl mx-auto px-4 sm:px-6 mt-4">
+  <div id="type-pills" class="flex items-center gap-2 flex-wrap"></div>
+</div>
+
+<!-- ============================= MAIN ============================= -->
+<main class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+
+  <div id="result-meta" class="flex items-center justify-between mb-4 text-sm text-slate-600 font-bn"></div>
+
+  <!-- Loading state -->
+  <div id="loading-state" class="flex flex-col items-center justify-center py-24 text-slate-500">
+    <i data-lucide="loader-2" class="w-7 h-7 text-emerald-600 spin"></i>
+    <p class="mt-3 text-sm font-bn">তথ্য লোড হচ্ছে…</p>
+  </div>
+
+  <!-- Empty state -->
+  <div id="empty-state" class="hidden flex-col items-center justify-center py-24 text-center">
+    <div class="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mb-4">
+      <i data-lucide="search-x" class="w-6 h-6 text-emerald-600"></i>
+    </div>
+    <p class="font-display text-lg text-emerald-800">কোনো ফলাফল পাওয়া যায়নি</p>
+    <p class="text-sm text-slate-500 mt-1 font-bn max-w-xs">ভিন্ন কীওয়ার্ড দিয়ে চেষ্টা করুন অথবা ফিল্টার পরিবর্তন করুন।</p>
+    <button id="reset-filters" class="mt-4 text-sm font-medium text-emerald-700 border border-emerald-200 rounded-full px-4 py-2 hover:bg-emerald-50 font-bn">ফিল্টার রিসেট করুন</button>
+  </div>
+
+  <!-- Error state -->
+  <div id="error-state" class="hidden flex-col items-center justify-center py-20 text-center">
+    <i data-lucide="cloud-off" class="w-8 h-8 text-slate-400 mb-3"></i>
+    <p class="text-sm text-slate-600 font-bn">সংযোগ ব্যর্থ হয়েছে। ক্যাশ থেকে সংরক্ষিত তথ্য দেখানো হচ্ছে (যদি থাকে)।</p>
+  </div>
+
+  <!-- Cards grid -->
+  <div id="cards-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+</main>
+
+<footer class="max-w-5xl mx-auto px-4 sm:px-6 py-10 text-center text-xs text-slate-500 font-bn">
+  <div class="w-10 h-px bg-slate-300 mx-auto mb-4"></div>
+  তথ্যসূত্র যাচাই করে নেওয়ার পরামর্শ দেওয়া হচ্ছে · সর্বশেষ সিঙ্ক: <span id="sync-time">—</span>
+</footer>
+
+<!-- Card template -->
+<template id="card-template">
+  <article class="fade-up bg-white border border-slate-200 rounded-2xl shadow-card overflow-hidden">
+    <div class="p-5">
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span data-type-tag class="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full"></span>
+          <span data-topic-tag class="inline-flex items-center text-[11px] font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-bn"></span>
+          <span data-featured class="hidden inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-full bg-gold-500/15 text-gold-600">
+            <i data-lucide="star" class="w-3 h-3"></i> নির্বাচিত
+          </span>
+        </div>
+      </div>
+
+      <h3 data-title class="font-display font-semibold text-[17px] text-emerald-900 leading-snug mb-1 font-bn"></h3>
+      <p data-reference class="text-xs text-slate-500 mb-3 font-bn"></p>
+
+      <p data-arabic class="hidden font-arabic text-right text-[19px] leading-[2.1] text-emerald-900 bg-emerald-50/60 rounded-xl px-4 py-3 mb-3" dir="rtl"></p>
+      <p data-translation class="text-[14.5px] text-slate-700 leading-relaxed font-bn mb-3"></p>
+
+      <button data-toggle class="flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:text-emerald-800 font-bn">
+        <i data-lucide="chevron-down" data-chevron class="w-4 h-4 transition-transform"></i>
+        <span data-toggle-label>ব্যাখ্যা দেখুন (বেখ্যা)</span>
+      </button>
+
+      <div data-explain class="mt-3">
+        <div class="border-t border-slate-100 pt-3 text-[14.5px] text-slate-700 leading-relaxed font-bn" data-explanation></div>
+        <div data-narrator-wrap class="hidden mt-3 flex items-center gap-2 text-xs text-slate-500 font-bn">
+          <i data-lucide="user-round" class="w-3.5 h-3.5"></i>
+          <span data-narrator></span>
+          <span data-grade class="ml-auto px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700"></span>
+        </div>
+      </div>
+    </div>
+  </article>
+</template>
+
+<script>
+/* =====================================================================
+   আলোর পথ — AlorPoth
+   Vanilla JS, modular sections. Supabase for data, localStorage for cache.
+   ===================================================================== */
+
+/* ---------------------- 1. CONFIG ---------------------- */
+const SUPABASE_URL = 'https://hybqyfmzarxtamttyteu.supabase.co';     // <-- replace with your Supabase project URL
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5YnF5Zm16YXJ4dGFtdHR5dGV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDUwOTEsImV4cCI6MjEwNDI4MTA5MX0.EzZbD7RshaiI86CdNkV62PNc7-6rJjdMvkX9cAmq5GY';        // <-- replace with your anon public key
+
+const CACHE_KEYS = { topics: 'ilm_cache_topics', sources: 'ilm_cache_sources', ts: 'ilm_cache_ts' };
+const CACHE_TTL_MS = 1000 * 60 * 30; // 30 minutes — after this, prefer a fresh fetch but still show cache instantly
+
+const TYPE_META = {
+  quran:  { label: 'কুরআনের আয়াত', icon: 'book-open',      classes: 'bg-emerald-600 text-white' },
+  hadith: { label: 'হাদিস',         icon: 'scroll-text',     classes: 'bg-gold-500 text-emerald-900' },
+  athar:  { label: 'আছার',          icon: 'landmark',        classes: 'bg-slate-600 text-white' },
+  fatwa:  { label: 'ফতোয়া',        icon: 'gavel',            classes: 'bg-emerald-800 text-white' }
+};
+
+/* ---------------------- 2. SUPABASE CLIENT ---------------------- */
+function getSupabaseClient() {
+  if (window.__ILM_SUPABASE_CLIENT__) {
+    return window.__ILM_SUPABASE_CLIENT__;
+  }
+
+  if (!window.supabase) {
+    throw new Error('Supabase JS SDK is not loaded. Check the CDN script before this code.');
+  }
+
+  window.__ILM_SUPABASE_CLIENT__ = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return window.__ILM_SUPABASE_CLIENT__;
+}
+
+var supabase = getSupabaseClient();
+
+/* ---------------------- 3. LOCALSTORAGE CACHE LAYER ---------------------- */
+const Cache = {
+  save(topics, sources) {
+    try {
+      localStorage.setItem(CACHE_KEYS.topics, JSON.stringify(topics));
+      localStorage.setItem(CACHE_KEYS.sources, JSON.stringify(sources));
+      localStorage.setItem(CACHE_KEYS.ts, String(Date.now()));
+    } catch (e) { console.warn('Cache write failed', e); }
+  },
+  load() {
+    try {
+      const topics = JSON.parse(localStorage.getItem(CACHE_KEYS.topics) || 'null');
+      const sources = JSON.parse(localStorage.getItem(CACHE_KEYS.sources) || 'null');
+      const ts = Number(localStorage.getItem(CACHE_KEYS.ts) || 0);
+      if (!topics || !sources) return null;
+      return { topics, sources, ts, isFresh: (Date.now() - ts) < CACHE_TTL_MS };
+    } catch (e) { return null; }
+  }
+};
+
+/* ---------------------- 4. APP STATE ---------------------- */
+const State = {
+  topics: [],
+  sources: [],
+  activeTopic: 'all',
+  activeType: 'all',
+  query: ''
+};
+
+/* ---------------------- 5. DATA FETCHING ---------------------- */
+async function fetchFromSupabase() {
+  const [{ data: topics, error: tErr }, { data: sources, error: sErr }] = await Promise.all([
+    supabase.from('topics').select('*').order('sort_order', { ascending: true }),
+    supabase.from('sources_with_topic').select('*').order('sort_order', { ascending: true })
+  ]);
+  if (tErr || sErr) throw (tErr || sErr);
+  return { topics, sources };
+}
+
+async function loadData() {
+  const cached = Cache.load();
+  if (cached) {
+    State.topics = cached.topics;
+    State.sources = cached.sources;
+    renderAll();
+    setConnBadge('cached');
+    setSyncTime(cached.ts);
+  }
+
+  try {
+    const fresh = await fetchFromSupabase();
+    State.topics = fresh.topics || [];
+    State.sources = fresh.sources || [];
+    Cache.save(State.topics, State.sources);
+    renderAll();
+    setConnBadge('live');
+    setSyncTime(Date.now());
+  } catch (err) {
+    console.error('Supabase fetch failed:', err);
+    if (!cached) {
+      showError();
+    } else {
+      setConnBadge('offline');
+    }
+  } finally {
+    document.getElementById('loading-state').classList.add('hidden');
+  }
+}
+
+/* ---------------------- 6. FILTER + SEARCH LOGIC ---------------------- */
+function getFilteredSources() {
+  const q = State.query.trim().toLowerCase();
+  return State.sources.filter(s => {
+    if (State.activeTopic !== 'all' && s.topic_id !== State.activeTopic) return false;
+    if (State.activeType !== 'all' && s.type !== State.activeType) return false;
+    if (!q) return true;
+    const haystack = [
+      s.title, s.reference, s.translation_bn, s.explanation,
+      s.topic_name_bn, s.topic_name_en, s.narrator, ...(s.tags || [])
+    ].filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(q);
+  });
+}
+
+/* ---------------------- 7. RENDERING ---------------------- */
+function renderAll() {
+  renderTopicPills();
+  renderTypePills();
+  renderResults();
+}
+
+function renderTopicPills() {
+  const wrap = document.getElementById('topic-pills');
+  const items = [{ id: 'all', name_bn: 'সব বিষয়' }, ...State.topics];
+  wrap.innerHTML = items.map(t => {
+    const active = State.activeTopic === t.id;
+    return `<button data-topic-id="${t.id}"
+      class="shrink-0 px-3.5 py-1.5 rounded-full text-[13px] font-bn font-medium transition
+      ${active ? 'bg-gold-500 text-emerald-900' : 'bg-emerald-700/50 text-emerald-50 hover:bg-emerald-700/80'}">
+      ${t.name_bn}
+    </button>`;
+  }).join('');
+  wrap.querySelectorAll('[data-topic-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      State.activeTopic = btn.dataset.topicId;
+      renderAll();
+    });
+  });
+}
+
+function renderTypePills() {
+  const wrap = document.getElementById('type-pills');
+  const types = [{ key: 'all', label: 'সব ধরন', icon: 'layout-grid' },
+    ...Object.entries(TYPE_META).map(([key, m]) => ({ key, label: m.label, icon: m.icon }))];
+  wrap.innerHTML = types.map(t => {
+    const active = State.activeType === t.key;
+    return `<button data-type-key="${t.key}"
+      class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] font-bn font-medium border transition
+      ${active ? 'bg-emerald-700 border-emerald-700 text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300'}">
+      <i data-lucide="${t.icon}" class="w-3.5 h-3.5"></i> ${t.label}
+    </button>`;
+  }).join('');
+  wrap.querySelectorAll('[data-type-key]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      State.activeType = btn.dataset.typeKey;
+      renderAll();
+    });
+  });
+  lucide.createIcons();
+}
+
+function renderResults() {
+  const grid = document.getElementById('cards-grid');
+  const emptyState = document.getElementById('empty-state');
+  const meta = document.getElementById('result-meta');
+  const results = getFilteredSources();
+
+  meta.innerHTML = State.sources.length
+    ? `<span>${results.length}টি ফলাফল পাওয়া গেছে</span>`
+    : '';
+
+  if (!results.length && State.sources.length) {
+    grid.innerHTML = '';
+    emptyState.classList.remove('hidden');
+    emptyState.classList.add('flex');
+    return;
+  }
+  emptyState.classList.add('hidden');
+  emptyState.classList.remove('flex');
+
+  const tpl = document.getElementById('card-template');
+  grid.innerHTML = '';
+  results.forEach(item => {
+    const node = tpl.content.cloneNode(true);
+    const meta = TYPE_META[item.type] || TYPE_META.hadith;
+
+    const typeTag = node.querySelector('[data-type-tag]');
+    typeTag.textContent = meta.label;
+    typeTag.className = `inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full font-bn ${meta.classes}`;
+
+    node.querySelector('[data-topic-tag]').textContent = item.topic_name_bn || '';
+    if (item.is_featured) node.querySelector('[data-featured]').classList.remove('hidden');
+
+    node.querySelector('[data-title]').textContent = item.title || '';
+    node.querySelector('[data-reference]').textContent = item.reference || '';
+
+    if (item.arabic_text) {
+      const ar = node.querySelector('[data-arabic]');
+      ar.textContent = item.arabic_text;
+      ar.classList.remove('hidden');
+    }
+    node.querySelector('[data-translation]').textContent = item.translation_bn || '';
+    node.querySelector('[data-explanation]').textContent = item.explanation || '';
+
+    if (item.narrator) {
+      node.querySelector('[data-narrator-wrap]').classList.remove('hidden');
+      node.querySelector('[data-narrator]').textContent = item.narrator;
+    }
+    if (item.grade) {
+      node.querySelector('[data-grade]').textContent = item.grade;
+    }
+
+    const toggleBtn = node.querySelector('[data-toggle]');
+    const explainEl = node.querySelector('[data-explain]');
+    const chevron = node.querySelector('[data-chevron]');
+    const label = node.querySelector('[data-toggle-label]');
+    toggleBtn.addEventListener('click', () => {
+      const isOpen = explainEl.classList.toggle('open');
+      chevron.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+      label.textContent = isOpen ? 'ব্যাখ্যা লুকান' : 'ব্যাখ্যা দেখুন (বেখ্যা)';
+    });
+
+    grid.appendChild(node);
+  });
+
+  lucide.createIcons();
+}
+
+/* ---------------------- 8. UI HELPERS ---------------------- */
+function setConnBadge(state) {
+  const dot = document.getElementById('conn-dot');
+  const text = document.getElementById('conn-text');
+  const map = {
+    live:    { color: 'bg-gold-400', label: 'লাইভ সংযুক্ত' },
+    cached:  { color: 'bg-slate-300', label: 'ক্যাশ থেকে দেখানো হচ্ছে' },
+    offline: { color: 'bg-red-400',  label: 'অফলাইন মোড' }
+  };
+  const m = map[state] || map.cached;
+  dot.className = `w-1.5 h-1.5 rounded-full ${m.color}`;
+  text.textContent = m.label;
+}
+
+function setSyncTime(ts) {
+  const el = document.getElementById('sync-time');
+  if (!ts) { el.textContent = '—'; return; }
+  el.textContent = new Date(ts).toLocaleString('bn-BD', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' });
+}
+
+function showError() {
+  document.getElementById('error-state').classList.remove('hidden');
+  document.getElementById('error-state').classList.add('flex');
+}
+
+/* ---------------------- 9. SEARCH INPUT WIRING (debounced, live) ---------------------- */
+let searchTimer = null;
+const searchInput = document.getElementById('search-input');
+const clearBtn = document.getElementById('clear-search');
+
+searchInput.addEventListener('input', (e) => {
+  clearTimeout(searchTimer);
+  const val = e.target.value;
+  clearBtn.classList.toggle('hidden', val.length === 0);
+  searchTimer = setTimeout(() => {
+    State.query = val;
+    renderResults();
+  }, 120); // near-instant live filtering
+});
+
+clearBtn.addEventListener('click', () => {
+  searchInput.value = '';
+  clearBtn.classList.add('hidden');
+  State.query = '';
+  renderResults();
+  searchInput.focus();
+});
+
+document.getElementById('reset-filters').addEventListener('click', () => {
+  State.activeTopic = 'all';
+  State.activeType = 'all';
+  State.query = '';
+  searchInput.value = '';
+  clearBtn.classList.add('hidden');
+  renderAll();
+});
+
+/* ---------------------- 10. OPTIONAL: REALTIME SYNC ----------------------
+   If you enable Supabase Realtime on the `sources` table, new content
+   added in Supabase will reflect instantly without a page refresh. */
+function subscribeRealtime() {
+  supabase
+    .channel('public:sources')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'sources' }, () => {
+      fetchFromSupabase().then(fresh => {
+        State.topics = fresh.topics || State.topics;
+        State.sources = fresh.sources || State.sources;
+        Cache.save(State.topics, State.sources);
+        renderAll();
+        setSyncTime(Date.now());
+      }).catch(console.error);
+    })
+    .subscribe();
+}
+
+/* ---------------------- 11. INIT ---------------------- */
+lucide.createIcons();
+loadData().then(subscribeRealtime);
+</script>
+</body>
+</html>
