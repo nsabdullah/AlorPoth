@@ -138,6 +138,22 @@
   <div id="type-pills" class="flex items-center gap-2 flex-wrap"></div>
 </div>
 
+<!-- Sub-topic tags cloud -->
+<section class="max-w-5xl mx-auto px-4 sm:px-6 mt-4" aria-labelledby="subtopic-heading">
+  <div class="rounded-2xl border border-gold-500/20 bg-gradient-to-br from-white to-emerald-50/60 p-4 shadow-card sm:p-5">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+      <div>
+        <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold-600">Explore the collection</p>
+        <h2 id="subtopic-heading" class="mt-1 font-display text-lg text-emerald-900">বিষয় ও উপ-বিষয়</h2>
+      </div>
+      <button id="clear-subtopic" type="button" class="hidden rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50 font-bn">
+        সব পোস্ট দেখুন
+      </button>
+    </div>
+    <div id="subtopic-tags" class="flex flex-wrap gap-2" aria-live="polite"></div>
+  </div>
+</section>
+
 <!-- ============================= MAIN ============================= -->
 <main class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
 
@@ -306,6 +322,7 @@ const State = {
   sources: [],
   activeTopic: 'all',
   activeType: 'all',
+  activeSubTopic: '',
   query: '',
   currentView: 'all',
   bookmarks: [],
@@ -543,6 +560,10 @@ function getFilteredSources() {
     list = list.filter(item => item.type === State.activeType);
   }
 
+  if (State.activeSubTopic) {
+    list = list.filter(item => String(item.sub_topic || '').trim() === State.activeSubTopic);
+  }
+
   if (!searchGroups.length) return list;
 
   return list.filter(item => {
@@ -581,6 +602,7 @@ function renderAll() {
   renderViewToggleBar();
   renderTopicPills();
   renderTypePills();
+  renderSubtopicTags();
   renderResults();
 }
 
@@ -624,6 +646,63 @@ function renderTypePills() {
     });
   });
   lucide.createIcons();
+}
+
+function getUniqueSubtopics() {
+  const counts = new Map();
+  (State.sources || []).forEach(item => {
+    const subtopic = String(item.sub_topic || '').trim();
+    if (subtopic) counts.set(subtopic, (counts.get(subtopic) || 0) + 1);
+  });
+  return [...counts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'bn'));
+}
+
+function renderSubtopicTags() {
+  const wrap = document.getElementById('subtopic-tags');
+  const clearButton = document.getElementById('clear-subtopic');
+  const subtopics = getUniqueSubtopics();
+
+  wrap.innerHTML = '';
+  clearButton.classList.toggle('hidden', !State.activeSubTopic);
+  clearButton.onclick = () => {
+    State.activeSubTopic = '';
+    renderAll();
+  };
+
+  const allButton = document.createElement('button');
+  allButton.type = 'button';
+  allButton.textContent = 'সব উপ-বিষয়';
+  allButton.className = `rounded-full border px-3 py-1.5 text-xs font-medium transition font-bn ${
+    State.activeSubTopic ? 'border-slate-200 bg-white text-slate-600 hover:border-emerald-300' : 'border-emerald-700 bg-emerald-700 text-white'
+  }`;
+  allButton.addEventListener('click', () => {
+    State.activeSubTopic = '';
+    renderAll();
+  });
+  wrap.appendChild(allButton);
+
+  subtopics.forEach(({ name, count }) => {
+    const button = document.createElement('button');
+    const active = State.activeSubTopic === name;
+    button.type = 'button';
+    button.className = `rounded-full border px-3 py-1.5 text-xs font-medium transition font-bn ${
+      active ? 'border-gold-500 bg-gold-500 text-emerald-900 shadow-sm' : 'border-emerald-100 bg-white/80 text-emerald-800 hover:border-gold-400 hover:bg-gold-500/10'
+    }`;
+    button.setAttribute('aria-pressed', String(active));
+    const label = document.createElement('span');
+    label.textContent = name;
+    const countLabel = document.createElement('span');
+    countLabel.className = 'ml-1.5 text-[10px] opacity-65';
+    countLabel.textContent = count;
+    button.append(label, countLabel);
+    button.addEventListener('click', () => {
+      State.activeSubTopic = name;
+      renderAll();
+    });
+    wrap.appendChild(button);
+  });
 }
 
 function renderResults() {
@@ -779,6 +858,7 @@ clearBtn.addEventListener('click', () => {
 document.getElementById('reset-filters').addEventListener('click', () => {
   State.activeTopic = 'all';
   State.activeType = 'all';
+  State.activeSubTopic = '';
   State.query = '';
   State.navPath = [];
   searchInput.value = '';
