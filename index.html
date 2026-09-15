@@ -198,6 +198,17 @@
       <p data-arabic class="hidden font-arabic text-right text-[19px] leading-[2.1] text-emerald-900 bg-emerald-50/60 rounded-xl px-4 py-3 mb-3" dir="rtl"></p>
       <p data-translation class="text-[14.5px] text-slate-700 leading-relaxed font-bn mb-3"></p>
 
+      <div class="flex items-center gap-3 text-xs text-slate-500 font-bn mb-3">
+        <span class="inline-flex items-center gap-1.5">
+          <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+          <span data-view-count>০ বার দেখা হয়েছে</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
+          <span data-card-bookmark-count>বুকমার্ক নয়</span>
+        </span>
+      </div>
+
       <button data-toggle class="flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:text-emerald-800 font-bn">
         <i data-lucide="chevron-down" data-chevron class="w-4 h-4 transition-transform"></i>
         <span data-toggle-label>ব্যাখ্যা দেখুন (বেখ্যা)</span>
@@ -366,6 +377,26 @@ function trackReadHistory(item) {
   const next = [snapshot, ...State.history.filter(entry => String(entry.id) !== key)];
   State.history = next.slice(0, MAX_HISTORY_ITEMS);
   saveLocalCollections();
+}
+
+async function incrementViewCount(item, viewCountEl) {
+  if (!item || !item.id) return;
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  const { data, error } = await client.rpc('increment_source_view_count', { source_id: item.id });
+  if (error) {
+    console.warn('Could not increment source view count:', error);
+    return;
+  }
+
+  const nextCount = Number(data ?? Number(item.view_count || 0) + 1);
+  item.view_count = nextCount;
+  if (viewCountEl) viewCountEl.textContent = formatViewCount(nextCount);
+}
+
+function formatViewCount(count) {
+  return `${Number(count || 0).toLocaleString('bn-BD')} বার দেখা হয়েছে`;
 }
 
 /* ---------------------- 5. DATA FETCHING ---------------------- */
@@ -623,6 +654,8 @@ function renderResults() {
     }
     node.querySelector('[data-translation]').textContent = item.translation_bn || '';
     node.querySelector('[data-explanation]').textContent = item.explanation || '';
+    node.querySelector('[data-view-count]').textContent = formatViewCount(item.view_count);
+    node.querySelector('[data-card-bookmark-count]').textContent = isSaved ? 'বুকমার্ক করা' : 'বুকমার্ক নয়';
 
     if (item.narrator) {
       node.querySelector('[data-narrator-wrap]').classList.remove('hidden');
@@ -636,12 +669,14 @@ function renderResults() {
     const explainEl = node.querySelector('[data-explain]');
     const chevron = node.querySelector('[data-chevron]');
     const label = node.querySelector('[data-toggle-label]');
+    const viewCountEl = node.querySelector('[data-view-count]');
     toggleBtn.addEventListener('click', (event) => {
       event.stopPropagation();
       const isOpen = explainEl.classList.toggle('open');
       chevron.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
       label.textContent = isOpen ? 'ব্যাখ্যা লুকান' : 'ব্যাখ্যা দেখুন (বেখ্যা)';
       trackReadHistory(item);
+      incrementViewCount(item, viewCountEl);
     });
 
     bookmarkBtn.addEventListener('click', (event) => {
@@ -653,6 +688,7 @@ function renderResults() {
     const article = node.querySelector('article');
     article.addEventListener('click', () => {
       trackReadHistory(item);
+      incrementViewCount(item, viewCountEl);
     });
 
     grid.appendChild(node);

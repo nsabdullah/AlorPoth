@@ -8,14 +8,28 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: 'Noto Sans Bengali', 'Inter', sans-serif; }
-    .field { @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200; }
+      .field {
+        width: 100%;
+      border-radius: 0.75rem;
+      border: 1px solid #cbd5e1;
+      background-color: #fff;
+      padding: 0.625rem 0.75rem;
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+      color: #1e293b;
+      outline: none;
+    }
+    .field:focus {
+      border-color: #10b981;
+      box-shadow: 0 0 0 2px #a7f3d0;
+    }
   </style>
 </head>
-<body class="min-h-screen bg-slate-100 text-slate-800">
-  <div class="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-    <div class="mb-6 rounded-2xl bg-emerald-800 px-5 py-4 text-white shadow-lg">
-      <h1 class="text-2xl font-bold">আলোর পথ · AlorPoth Admin</h1>
-      <p class="mt-1 text-sm text-emerald-100">নতুন কন্টেন্ট ডাটাবেসে যোগ করুন</p>
+<body class="min-h-screen bg-[#F5F3EC] text-[#20261F]">
+  <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+    <div class="mb-6 flex items-center justify-between rounded-2xl bg-[#0A2E22] px-5 py-4 text-white shadow-lg">
+      <div><h1 class="text-2xl font-bold">আলোর পথ · AlorPoth Admin</h1><p class="mt-1 text-sm text-emerald-100">কন্টেন্ট ও পাঠ-পরিসংখ্যান পরিচালনা</p></div>
+      <a href="index.html" class="rounded-full border border-emerald-100/30 px-3 py-2 text-xs text-emerald-50 hover:bg-emerald-700">মূল সাইট</a>
     </div>
 
     <div id="auth-box" class="rounded-2xl bg-white p-5 shadow-md">
@@ -33,9 +47,11 @@
       </div>
     </div>
 
-    <form id="content-form" class="mt-6 hidden rounded-2xl bg-white p-5 shadow-md">
+    <section id="dashboard" class="hidden">
+    <form id="content-form" class="mt-6 rounded-2xl bg-white p-5 shadow-md">
       <div class="mb-5 flex items-center justify-between gap-3">
-        <h2 class="text-xl font-semibold text-slate-800">Add New Source</h2>
+        <h2 id="form-heading" class="text-xl font-semibold text-slate-800">Add New Source</h2>
+        <button type="button" id="cancel-edit" class="hidden rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600">Cancel edit</button>
         <button type="button" id="logout-btn" class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-emerald-500 hover:text-emerald-700">
           Logout
         </button>
@@ -105,18 +121,7 @@
           <input name="grade" class="field" placeholder="সহীহ / হাসান" />
         </div>
 
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700">Sort Order</label>
-          <input name="sort_order" type="number" class="field" value="1" />
-        </div>
-
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700">Status</label>
-          <select name="status" class="field">
-            <option value="published">Published</option>
-            <option value="draft">Draft</option>
-          </select>
-        </div>
+        <input name="id" type="hidden" />
       </div>
 
       <div class="mt-6 flex items-center justify-between gap-4">
@@ -126,6 +131,8 @@
         </button>
       </div>
     </form>
+    <section class="mt-6 overflow-x-auto rounded-2xl bg-white p-5 shadow-md"><div class="mb-4 flex items-center justify-between"><h2 class="text-xl font-semibold text-slate-800">Manage Posts</h2><span id="table-status" class="text-sm text-slate-500"></span></div><table class="w-full min-w-[720px] text-left text-sm"><thead class="border-b border-slate-200 text-xs uppercase text-slate-500"><tr><th class="px-3 py-3">Title</th><th class="px-3 py-3">Topic</th><th class="px-3 py-3">Type</th><th class="px-3 py-3">Views</th><th class="px-3 py-3 text-right">Actions</th></tr></thead><tbody id="posts-body" class="divide-y divide-slate-100"></tbody></table></section>
+    </section>
   </div>
 
   <script>
@@ -134,7 +141,10 @@
 
       const SUPABASE_URL = 'https://hybqyfmzarxtamttyteu.supabase.co';
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5YnF5Zm16YXJ4dGFtdHR5dGV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDUwOTEsImV4cCI6MjEwNDI4MTA5MX0.EzZbD7RshaiI86CdNkV62PNc7-6rJjdMvkX9cAmq5GY';
-      const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+      const supabaseClient = window.supabase && !window.__ALORPOTH_SUPABASE_CLIENT__
+        ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        : window.__ALORPOTH_SUPABASE_CLIENT__;
+      if (supabaseClient) window.__ALORPOTH_SUPABASE_CLIENT__ = supabaseClient;
 
       const authBox = document.getElementById('auth-box');
       const formBox = document.getElementById('content-form');
@@ -143,10 +153,10 @@
       const logoutBtn = document.getElementById('logout-btn');
       const formMessage = document.getElementById('form-message');
 
-      function setMessage(text, isError = false) {
-        if (!formMessage) return;
-        formMessage.textContent = text;
-        formMessage.className = `text-sm ${isError ? 'text-red-600' : 'text-slate-600'}`;
+      function setMessage(text, isError = false, target = formMessage) {
+        if (!target) return;
+        target.textContent = text;
+        target.className = `text-sm ${isError ? 'text-red-600' : 'text-slate-600'}`;
       }
 
       function unlockForm() {
@@ -157,23 +167,21 @@
 
         const entered = passwordInput.value.trim();
         if (entered !== ADMIN_PASSWORD) {
-          setMessage('Incorrect password. Only authorized users can submit.', true);
+          setMessage('Incorrect password. Only authorized users can submit.', true, document.getElementById('auth-message'));
           passwordInput.focus();
           return;
         }
 
         authBox.classList.add('hidden');
         authBox.style.display = 'none';
-        formBox.classList.remove('hidden');
-        formBox.style.display = 'block';
+        document.getElementById('dashboard').classList.remove('hidden');
         passwordInput.value = '';
         setMessage('Authorized. You can now add content.');
       }
 
       function lockForm() {
         if (!authBox || !formBox) return;
-        formBox.classList.add('hidden');
-        formBox.style.display = 'none';
+        document.getElementById('dashboard').classList.add('hidden');
         authBox.classList.remove('hidden');
         authBox.style.display = 'block';
         if (formBox.reset) formBox.reset();
@@ -181,13 +189,71 @@
         setMessage('');
       }
 
+      let posts = [];
+      const postsBody = document.getElementById('posts-body');
+      const tableStatus = document.getElementById('table-status');
+      const formHeading = document.getElementById('form-heading');
+      const cancelEdit = document.getElementById('cancel-edit');
+
+      function escapeHtml(value) {
+        return String(value || '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+      }
+
+      function renderPosts() {
+        postsBody.innerHTML = posts.length ? posts.map(post => `
+          <tr>
+            <td class="px-3 py-3 font-medium text-emerald-800">${escapeHtml(post.title)}</td>
+            <td class="px-3 py-3">${escapeHtml(post.topic_name || post.topic_name_bn || 'অন্যান্য')}</td>
+            <td class="px-3 py-3">${escapeHtml(post.type)}</td>
+            <td class="px-3 py-3">${Number(post.view_count || 0).toLocaleString('bn-BD')}</td>
+            <td class="px-3 py-3 text-right"><button type="button" data-edit="${post.id}" class="mr-3 text-emerald-700 hover:underline">Edit</button><button type="button" data-delete="${post.id}" class="text-red-600 hover:underline">Delete</button></td>
+          </tr>`).join('') : '<tr><td colspan="5" class="px-3 py-8 text-center text-slate-500">No posts found.</td></tr>';
+
+        postsBody.querySelectorAll('[data-edit]').forEach(button => button.addEventListener('click', () => editPost(button.dataset.edit)));
+        postsBody.querySelectorAll('[data-delete]').forEach(button => button.addEventListener('click', () => deletePost(button.dataset.delete)));
+      }
+
+      async function loadPosts() {
+        if (!supabaseClient) return;
+        const { data, error } = await supabaseClient.from('sources').select('*').order('created_at', { ascending: false });
+        if (error) { tableStatus.textContent = `Load failed: ${error.message}`; return; }
+        posts = data || [];
+        tableStatus.textContent = `${posts.length} posts · live view counts`;
+        renderPosts();
+      }
+
+      function editPost(id) {
+        const post = posts.find(item => String(item.id) === String(id));
+        if (!post) return;
+        ['topic_name', 'sub_topic', 'type', 'title', 'reference', 'arabic_text', 'translation_bn', 'explanation', 'narrator', 'grade'].forEach(name => { formBox.elements[name].value = post[name] || ''; });
+        formBox.elements.is_featured.value = String(Boolean(post.is_featured));
+        formBox.elements.id.value = post.id;
+        formHeading.textContent = 'Update Source';
+        cancelEdit.classList.remove('hidden');
+        formBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+
+      async function deletePost(id) {
+        const post = posts.find(item => String(item.id) === String(id));
+        if (!post || !window.confirm(`Delete “${post.title}”?`)) return;
+        const { error } = await supabaseClient.from('sources').delete().eq('id', id);
+        if (error) return setMessage(`Delete failed: ${error.message}`, true);
+        setMessage('Post deleted.');
+        loadPosts();
+      }
+
+      function resetEditor() {
+        formBox.reset();
+        formBox.elements.id.value = '';
+        formHeading.textContent = 'Add New Source';
+        cancelEdit.classList.add('hidden');
+      }
+
       if (unlockBtn) {
-        unlockBtn.onclick = unlockForm;
-        unlockBtn.addEventListener('click', unlockForm);
+        unlockBtn.addEventListener('click', () => { unlockForm(); loadPosts(); });
       }
 
       if (logoutBtn) {
-        logoutBtn.onclick = lockForm;
         logoutBtn.addEventListener('click', lockForm);
       }
 
@@ -201,29 +267,28 @@
         formBox.addEventListener('submit', async (event) => {
           event.preventDefault();
 
-          if (!supabase) {
+          if (!supabaseClient) {
             setMessage('Supabase client failed to load. Check the CDN script tag and browser console.', true);
             return;
           }
 
           const formData = new FormData(formBox);
+          const id = formData.get('id')?.toString().trim();
           const payload = {
             topic_name: formData.get('topic_name')?.toString().trim() || '',
             sub_topic: formData.get('sub_topic')?.toString().trim() || null,
             type: formData.get('type')?.toString().trim() || 'hadith',
             title: formData.get('title')?.toString().trim() || '',
-            reference: formData.get('reference')?.toString().trim() || '',
+            reference: formData.get('reference')?.toString().trim() || null,
             arabic_text: formData.get('arabic_text')?.toString().trim() || null,
-            translation_bn: formData.get('translation_bn')?.toString().trim() || '',
+            translation_bn: formData.get('translation_bn')?.toString().trim() || null,
             explanation: formData.get('explanation')?.toString().trim() || '',
             narrator: formData.get('narrator')?.toString().trim() || null,
             grade: formData.get('grade')?.toString().trim() || null,
-            is_featured: formData.get('is_featured') === 'true',
-            sort_order: Number(formData.get('sort_order') || 1),
-            status: formData.get('status')?.toString().trim() || 'published'
+            is_featured: formData.get('is_featured') === 'true'
           };
 
-          const requiredFields = ['topic_name', 'title', 'reference', 'translation_bn', 'explanation'];
+          const requiredFields = ['topic_name', 'title', 'explanation'];
           const missing = requiredFields.filter((field) => !payload[field] || payload[field] === '');
 
           if (missing.length) {
@@ -232,17 +297,23 @@
           }
 
           try {
-            const { data, error } = await supabase.from('sources').insert([payload]).select();
+            const query = id
+              ? supabaseClient.from('sources').update(payload).eq('id', id).select()
+              : supabaseClient.from('sources').insert([payload]).select();
+            const { data, error } = await query;
             if (error) throw error;
 
-            formBox.reset();
-            setMessage(`Content saved successfully to Supabase. ${data?.length ? 'Record inserted.' : ''}`);
+            resetEditor();
+            setMessage(id ? 'Content updated successfully.' : `Content saved successfully to Supabase. ${data?.length ? 'Record inserted.' : ''}`);
+            loadPosts();
           } catch (err) {
             console.error('Supabase insert error:', err);
             setMessage('Submit failed. Please verify the table columns, RLS policy, and Supabase permissions.', true);
           }
         });
       }
+
+      if (cancelEdit) cancelEdit.addEventListener('click', resetEditor);
     });
   </script>
 </body>

@@ -33,7 +33,9 @@ create type public.source_type as enum ('quran', 'hadith', 'athar', 'fatwa');
 -- ---------------------------------------------------------
 create table public.sources (
   id              uuid primary key default gen_random_uuid(),
-  topic_id        uuid not null references public.topics(id) on delete cascade,
+  topic_id        uuid references public.topics(id) on delete cascade,
+  topic_name      text,
+  sub_topic       text,
   type            public.source_type not null,
   title           text not null,              -- short heading, e.g. "সূরা আল-বাকারা: ২৮৫"
   reference       text,                        -- optional; may be null or empty
@@ -44,6 +46,7 @@ create table public.sources (
   grade           text,                        -- optional for hadith: sahih/hasan/da'if
   tags            text[] default '{}',
   is_featured     boolean default false,
+  view_count      integer not null default 0,
   sort_order      int default 0,
   created_at      timestamptz default now(),
   updated_at      timestamptz default now()
@@ -55,6 +58,21 @@ create table public.sources (
 create index idx_sources_topic       on public.sources (topic_id);
 create index idx_sources_type        on public.sources (type);
 create index idx_sources_tags        on public.sources using gin (tags);
+create index idx_sources_view_count  on public.sources (view_count);
+
+create or replace function public.increment_source_view_count(source_id uuid)
+returns integer
+language sql
+security definer
+set search_path = public
+as $$
+  update public.sources
+  set view_count = coalesce(view_count, 0) + 1
+  where id = source_id
+  returning view_count;
+$$;
+
+grant execute on function public.increment_source_view_count(uuid) to anon, authenticated;
 
 -- Full-text search index across title, translation and explanation
 alter table public.sources add column search_vector tsvector
@@ -96,6 +114,21 @@ create policy "Public can read topics"
 
 create policy "Public can read sources"
   on public.sources for select
+  using (true);
+
+-- The current admin page uses the anon client after its local password gate.
+-- Replace these policies with Supabase Auth/RPC authorization for production.
+create policy "Admin client can insert sources"
+  on public.sources for insert
+  with check (true);
+
+create policy "Admin client can update sources"
+  on public.sources for update
+  using (true)
+  with check (true);
+
+create policy "Admin client can delete sources"
+  on public.sources for delete
   using (true);
 
 -- ---------------------------------------------------------
@@ -156,7 +189,8 @@ from public.topics where slug = 'akhlaq';
 create or replace view public.sources_with_topic as
 select
   s.*,
-  t.name_bn  as topic_name_bn,
+  coalesce(s.topic_name, t.name_bn) as topic_name,
+  coalesce(s.topic_name, t.name_bn) as topic_name_bn,
   t.name_en  as topic_name_en,
   t.slug     as topic_slug,
   t.icon     as topic_icon
