@@ -214,11 +214,18 @@
    ===================================================================== */
 
 /* ---------------------- 1. CONFIG ---------------------- */
-const SUPABASE_URL = 'https://hybqyfmzarxtamttyteu.supabase.co';     // <-- replace with your Supabase project URL
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5YnF5Zm16YXJ4dGFtdHR5dGV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDUwOTEsImV4cCI6MjEwNDI4MTA5MX0.EzZbD7RshaiI86CdNkV62PNc7-6rJjdMvkX9cAmq5GY';        // <-- replace with your anon public key
+const SUPABASE_URL = 'https://hybqyfmzarxtamttyteu.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5YnF5Zm16YXJ4dGFtdHR5dGV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDUwOTEsImV4cCI6MjEwNDI4MTA5MX0.EzZbD7RshaiI86CdNkV62PNc7-6rJjdMvkX9cAmq5GY';
 
 const CACHE_KEYS = { topics: 'ilm_cache_topics', sources: 'ilm_cache_sources', ts: 'ilm_cache_ts' };
 const CACHE_TTL_MS = 1000 * 60 * 30; // 30 minutes — after this, prefer a fresh fetch but still show cache instantly
+
+const hasValidSupabaseConfig = Boolean(
+  SUPABASE_URL &&
+  SUPABASE_URL.includes('supabase.co') &&
+  SUPABASE_ANON_KEY &&
+  !SUPABASE_ANON_KEY.includes('replace-with')
+);
 
 const TYPE_META = {
   quran:  { label: 'কুরআনের আয়াত', icon: 'book-open',      classes: 'bg-emerald-600 text-white' },
@@ -234,7 +241,13 @@ function getSupabaseClient() {
   }
 
   if (!window.supabase) {
-    throw new Error('Supabase JS SDK is not loaded. Check the CDN script before this code.');
+    console.warn('Supabase SDK is not loaded. Check the CDN script before the app logic.');
+    return null;
+  }
+
+  if (!hasValidSupabaseConfig) {
+    console.warn('Supabase URL or anon key is missing/invalid. Falling back to cached UI data if available.');
+    return null;
   }
 
   window.__ILM_SUPABASE_CLIENT__ = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -273,13 +286,69 @@ const State = {
 };
 
 /* ---------------------- 5. DATA FETCHING ---------------------- */
+function isMissingTableOrViewError(error) {
+  if (!error) return false;
+  const message = String(error?.message || '').toLowerCase();
+  const code = String(error?.code || '');
+  return code === 'PGRST205' || code === 'PGRST116' || message.includes('does not exist') || message.includes('not found') || message.includes('sources_with_topic');
+}
+
 async function fetchFromSupabase() {
-  const [{ data: topics, error: tErr }, { data: sources, error: sErr }] = await Promise.all([
-    supabase.from('topics').select('*').order('sort_order', { ascending: true }),
-    supabase.from('sources_with_topic').select('*').order('sort_order', { ascending: true })
-  ]);
-  if (tErr || sErr) throw (tErr || sErr);
-  return { topics, sources };
+  const client = getSupabaseClient();
+
+  if (!client) {
+    throw new Error('Supabase client is unavailable. Check the Supabase URL and anon key in index.html.');
+  }
+
+  const fetchTopics = async () => {
+    const { data, error } = await client.from('topics').select('*').order('sort_order', { ascending: true });
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  };
+
+  const fetchSources = async () => {
+    const candidates = ['sources_with_topic', 'sources'];
+
+    for (const tableName of candidates) {
+      try {
+        const { data, error } = await client.from(tableName).select('*').order('sort_order', { ascending: true });
+        if (error) {
+          if (isMissingTableOrViewError(error)) {
+            console.warn(`Supabase table/view not found: ${tableName}. Trying fallback...`, error);
+            continue;
+          }
+          throw error;
+        }
+        return Array.isArray(data) ? data : [];
+      } catch (err) {
+        if (isMissingTableOrViewError(err)) {
+          console.warn(`Supabase table/view not found: ${tableName}. Trying fallback...`, err);
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    return [];
+  };
+
+  try {
+    const [topics, sources] = await Promise.all([
+      fetchTopics().catch(err => {
+        console.warn('topics query failed:', err);
+        return [];
+      }),
+      fetchSources().catch(err => {
+        console.warn('sources query failed:', err);
+        return [];
+      })
+    ]);
+
+    return { topics, sources };
+  } catch (err) {
+    console.warn('Supabase fetch warning: returning empty data to keep the UI stable.', err);
+    return { topics: [], sources: [] };
+  }
 }
 
 async function loadData() {
@@ -502,12 +571,15 @@ document.getElementById('reset-filters').addEventListener('click', () => {
    If you enable Supabase Realtime on the `sources` table, new content
    added in Supabase will reflect instantly without a page refresh. */
 function subscribeRealtime() {
+  if (!supabase) return;
+
   supabase
     .channel('public:sources')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'sources' }, () => {
       fetchFromSupabase().then(fresh => {
-        State.topics = fresh.topics || State.topics;
-        State.sources = fresh.sources || State.sources;
+        if (!fresh) return;
+        State.topics = Array.isArray(fresh.topics) ? fresh.topics : State.topics;
+        State.sources = Array.isArray(fresh.sources) ? fresh.sources : State.sources;
         Cache.save(State.topics, State.sources);
         renderAll();
         setSyncTime(Date.now());
