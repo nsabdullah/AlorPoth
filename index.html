@@ -468,8 +468,50 @@ async function loadData() {
 }
 
 /* ---------------------- 6. FILTER + SEARCH LOGIC ---------------------- */
+const SEARCH_ALIASES = {
+  iman: 'ঈমান iman faith belief aqidah আকীদাহ',
+  faith: 'ঈমান iman faith belief',
+  salah: 'সালাত নামাজ salah prayer الصلاة',
+  salat: 'সালাত নামাজ salah prayer الصلاة',
+  namaz: 'সালাত নামাজ salah prayer الصلاة',
+  prayer: 'সালাত নামাজ salah prayer الصلاة',
+  akhlaq: 'আখলাক চরিত্র akhlaq manners character',
+  character: 'আখলাক চরিত্র akhlaq manners character',
+  quran: 'কুরআন quran القرآن ayah verse',
+  'qur an': 'কুরআন quran القرآن ayah verse',
+  hadith: 'হাদিস hadith الحديث sunnah',
+  hadis: 'হাদিস hadith الحديث sunnah',
+  sunnah: 'হাদিস hadith الحديث sunnah',
+  fatwa: 'ফতোয়া fatwa ruling',
+  athar: 'আছার athar أثر'
+};
+
+function normalizeSearchText(value) {
+  return String(value || '')
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[\u064B-\u065F\u0670]/g, '')
+    .replace(/[“”‘’'`.,!?;:()[\]{}\/\\|_+=*-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getSearchTerms(query) {
+  const normalized = normalizeSearchText(query);
+  return normalized.split(' ').filter(Boolean).map(term => [term, ...(SEARCH_ALIASES[term] || '').split(' ').filter(Boolean)]);
+}
+
+function getSearchText(item) {
+  return normalizeSearchText([
+    item.title, item.reference, item.translation_bn, item.explanation,
+    item.arabic_text, item.topic_name, item.topic_name_bn, item.topic_name_en,
+    item.sub_topic, item.narrator, item.grade, item.type,
+    ...(item.tags || [])
+  ].filter(Boolean).join(' '));
+}
+
 function getFilteredSources() {
-  const q = State.query.trim().toLowerCase();
+  const searchGroups = getSearchTerms(State.query);
   let list = [...State.sources];
 
   if (State.currentView === 'bookmarks') {
@@ -501,22 +543,11 @@ function getFilteredSources() {
     list = list.filter(item => item.type === State.activeType);
   }
 
-  if (!q) return list;
+  if (!searchGroups.length) return list;
 
   return list.filter(item => {
-    const haystack = [
-      item.title,
-      item.reference,
-      item.translation_bn,
-      item.explanation,
-      item.arabic_text,
-      item.topic_name,
-      item.topic_name_bn,
-      item.topic_name_en,
-      item.narrator,
-      ...(item.tags || [])
-    ].filter(Boolean).join(' ').toLowerCase();
-    return haystack.includes(q);
+    const haystack = getSearchText(item);
+    return searchGroups.every(group => group.some(term => haystack.includes(normalizeSearchText(term))));
   });
 }
 
@@ -602,7 +633,7 @@ function renderResults() {
   const results = getFilteredSources();
 
   meta.innerHTML = State.sources.length
-    ? `<span>${results.length}টি ফলাফল পাওয়া গেছে</span>`
+    ? `<span class="font-bn">${results.length}টি ফলাফল পাওয়া গেছে${State.query.trim() ? ` · “${State.query.trim()}” অনুসন্ধান` : ''}</span>`
     : '';
 
   if (!results.length && State.sources.length) {

@@ -131,7 +131,7 @@
         </button>
       </div>
     </form>
-    <section class="mt-6 overflow-x-auto rounded-2xl bg-white p-5 shadow-md"><div class="mb-4 flex items-center justify-between"><h2 class="text-xl font-semibold text-slate-800">Manage Posts</h2><span id="table-status" class="text-sm text-slate-500"></span></div><table class="w-full min-w-[720px] text-left text-sm"><thead class="border-b border-slate-200 text-xs uppercase text-slate-500"><tr><th class="px-3 py-3">Title</th><th class="px-3 py-3">Topic</th><th class="px-3 py-3">Type</th><th class="px-3 py-3">Views</th><th class="px-3 py-3 text-right">Actions</th></tr></thead><tbody id="posts-body" class="divide-y divide-slate-100"></tbody></table></section>
+    <section class="mt-6 overflow-x-auto rounded-2xl bg-white p-5 shadow-md"><div class="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 class="text-xl font-semibold text-slate-800">Manage Posts</h2><span id="table-status" class="text-sm text-slate-500"></span></div><div class="relative mb-4"><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">⌕</span><input id="admin-search" type="search" class="field pl-9" placeholder="Search title, topic, reference, keyword..." autocomplete="off" /></div><table class="w-full min-w-[720px] text-left text-sm"><thead class="border-b border-slate-200 text-xs uppercase text-slate-500"><tr><th class="px-3 py-3">Title</th><th class="px-3 py-3">Topic</th><th class="px-3 py-3">Type</th><th class="px-3 py-3">Views</th><th class="px-3 py-3 text-right">Actions</th></tr></thead><tbody id="posts-body" class="divide-y divide-slate-100"></tbody></table></section>
     </section>
   </div>
 
@@ -191,6 +191,8 @@
 
       let posts = [];
       let currentEditId = null;
+      let adminSearchQuery = '';
+      const adminSearch = document.getElementById('admin-search');
       const postsBody = document.getElementById('posts-body');
       const tableStatus = document.getElementById('table-status');
       const formHeading = document.getElementById('form-heading');
@@ -200,8 +202,31 @@
         return String(value || '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
       }
 
+      function normalizeAdminSearch(value) {
+        return String(value || '').normalize('NFKC').toLocaleLowerCase().replace(/[\u064B-\u065F\u0670]/g, '').replace(/[“”‘’'`.,!?;:()[\]{}\/\\|_+=*-]/g, ' ').replace(/\s+/g, ' ').trim();
+      }
+
+      function getAdminSearchText(post) {
+        return normalizeAdminSearch([
+          post.title, post.topic_name, post.topic_name_bn, post.topic_name_en,
+          post.sub_topic, post.reference, post.translation_bn, post.explanation,
+          post.arabic_text, post.narrator, post.grade, post.type,
+          ...(post.tags || [])
+        ].filter(Boolean).join(' '));
+      }
+
+      function getVisiblePosts() {
+        const terms = normalizeAdminSearch(adminSearchQuery).split(' ').filter(Boolean);
+        if (!terms.length) return posts;
+        return posts.filter(post => {
+          const haystack = getAdminSearchText(post);
+          return terms.every(term => haystack.includes(term));
+        });
+      }
+
       function renderPosts() {
-        postsBody.innerHTML = posts.length ? posts.map(post => `
+        const visiblePosts = getVisiblePosts();
+        postsBody.innerHTML = visiblePosts.length ? visiblePosts.map(post => `
           <tr>
             <td class="px-3 py-3 font-medium text-emerald-800">${escapeHtml(post.title)}</td>
             <td class="px-3 py-3">${escapeHtml(post.topic_name || post.topic_name_bn || 'অন্যান্য')}</td>
@@ -324,6 +349,7 @@
       }
 
       if (cancelEdit) cancelEdit.addEventListener('click', resetEditor);
+      if (adminSearch) adminSearch.addEventListener('input', event => { adminSearchQuery = event.target.value; renderPosts(); });
     });
   </script>
 </body>
