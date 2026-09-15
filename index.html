@@ -282,8 +282,58 @@ const State = {
   sources: [],
   activeTopic: 'all',
   activeType: 'all',
-  query: ''
+  query: '',
+  navPath: []
 };
+
+function getTopicById(topicId) {
+  if (!topicId || topicId === 'all') return null;
+  return State.topics.find(t => String(t.id) === String(topicId)) || null;
+}
+
+function getTopicChildren(parentId) {
+  const rows = State.topics || [];
+  if (!parentId || parentId === 'all') {
+    return rows.filter(t => !t.parent_id && t.parent_id !== 0 && t.parent_id !== '0');
+  }
+  return rows.filter(t => String(t.parent_id) === String(parentId));
+}
+
+function getTopicPath(topicId) {
+  if (!topicId || topicId === 'all') return [];
+  const path = [];
+  let currentId = topicId;
+  while (currentId) {
+    const topic = getTopicById(currentId);
+    if (!topic) break;
+    path.unshift(topic);
+    currentId = topic.parent_id || null;
+  }
+  return path;
+}
+
+function getTopicLeafSelection() {
+  if (State.activeTopic === 'all') return null;
+  const selected = getTopicById(State.activeTopic);
+  if (!selected) return null;
+  const children = getTopicChildren(selected.id);
+  if (children.length) return null;
+  return selected.id;
+}
+
+function setNavigationTopic(topicId) {
+  if (!topicId || topicId === 'all') {
+    State.activeTopic = 'all';
+    State.navPath = [];
+    return;
+  }
+
+  const selected = getTopicById(topicId);
+  if (!selected) return;
+
+  State.activeTopic = String(topicId);
+  State.navPath = getTopicPath(topicId);
+}
 
 /* ---------------------- 5. DATA FETCHING ---------------------- */
 function isMissingTableOrViewError(error) {
@@ -384,8 +434,24 @@ async function loadData() {
 /* ---------------------- 6. FILTER + SEARCH LOGIC ---------------------- */
 function getFilteredSources() {
   const q = State.query.trim().toLowerCase();
+  const selectedLeafId = getTopicLeafSelection();
+
+  const matchesTopic = (s) => {
+    if (State.activeTopic === 'all') return true;
+    if (selectedLeafId) return String(s.topic_id) === String(selectedLeafId);
+
+    const selectedTopic = getTopicById(State.activeTopic);
+    if (!selectedTopic) return true;
+
+    if (selectedTopic.parent_id) {
+      return String(s.topic_id) === String(selectedTopic.id);
+    }
+
+    return true;
+  };
+
   return State.sources.filter(s => {
-    if (State.activeTopic !== 'all' && s.topic_id !== State.activeTopic) return false;
+    if (!matchesTopic(s)) return false;
     if (State.activeType !== 'all' && s.type !== State.activeType) return false;
     if (!q) return true;
     const haystack = [
@@ -405,18 +471,118 @@ function renderAll() {
 
 function renderTopicPills() {
   const wrap = document.getElementById('topic-pills');
-  const items = [{ id: 'all', name_bn: 'সব বিষয়' }, ...State.topics];
-  wrap.innerHTML = items.map(t => {
-    const active = State.activeTopic === t.id;
-    return `<button data-topic-id="${t.id}"
-      class="shrink-0 px-3.5 py-1.5 rounded-full text-[13px] font-bn font-medium transition
-      ${active ? 'bg-gold-500 text-emerald-900' : 'bg-emerald-700/50 text-emerald-50 hover:bg-emerald-700/80'}">
-      ${t.name_bn}
-    </button>`;
-  }).join('');
+  const hasHierarchy = State.topics.some(t => t.parent_id !== null && t.parent_id !== undefined && t.parent_id !== '');
+
+  if (!hasHierarchy) {
+    const items = [{ id: 'all', name_bn: 'সব বিষয়' }, ...State.topics];
+    wrap.innerHTML = items.map(t => {
+      const active = State.activeTopic === t.id;
+      return `<button data-topic-id="${t.id}"
+        class="shrink-0 px-3.5 py-1.5 rounded-full text-[13px] font-bn font-medium transition
+        ${active ? 'bg-gold-500 text-emerald-900' : 'bg-emerald-700/50 text-emerald-50 hover:bg-emerald-700/80'}">
+        ${t.name_bn}
+      </button>`;
+    }).join('');
+
+    wrap.querySelectorAll('[data-topic-id]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        State.activeTopic = btn.dataset.topicId;
+        State.navPath = [];
+        renderAll();
+      });
+    });
+    return;
+  }
+
+  const currentTopic = State.activeTopic === 'all' ? null : getTopicById(State.activeTopic);
+  const breadcrumb = State.navPath.length ? State.navPath : (currentTopic ? getTopicPath(currentTopic.id) : []);
+  const parentId = currentTopic ? currentTopic.id : null;
+  const children = parentId ? getTopicChildren(parentId) : getTopicChildren(null);
+
+  let html = '';
+
+  if (breadcrumb.length > 0) {
+    const crumbItems = breadcrumb.map((item, index) => {
+      const isLast = index === breadcrumb.length - 1;
+      const isRoot = index === 0;
+      return `
+        <button data-nav-crumb="${item.id}" class="text-[12px] font-bn ${isLast ? 'text-gold-500 font-semibold' : 'text-emerald-50/80'} ${isRoot ? 'mr-1' : 'mx-1'}">
+          ${item.name_bn || item.name_en || 'বিষয়'}
+        </button>
+      `;
+    }).join('<span class="text-emerald-100/60">/</span>');
+
+    html += `
+      <div class="flex items-center gap-2 mb-2">
+        <button data-nav-back class="px-2.5 py-1 rounded-full bg-emerald-800/70 text-[12px] text-white font-bn">← পিছনে</button>
+        <div class="flex items-center flex-wrap gap-1 text-[12px] font-bn text-emerald-50/90">${crumbItems}</div>
+      </div>
+    `;
+  } else {
+    html += `
+      <div class="flex items-center gap-2 mb-2">
+        <button data-nav-root class="px-2.5 py-1 rounded-full bg-emerald-800/70 text-[12px] text-white font-bn">সব বিষয়</button>
+      </div>
+    `;
+  }
+
+  if (children.length) {
+    html += children.map(t => `
+      <button data-topic-id="${t.id}"
+        class="shrink-0 px-3.5 py-1.5 rounded-full text-[13px] font-bn font-medium transition ${State.activeTopic === t.id ? 'bg-gold-500 text-emerald-900' : 'bg-emerald-700/50 text-emerald-50 hover:bg-emerald-700/80'}">
+        ${t.name_bn || t.name_en}
+      </button>
+    `).join('');
+  } else if (State.activeTopic !== 'all') {
+    html += `<div class="text-[12px] font-bn text-emerald-50/80">সংযুক্ত কন্টেন্ট দেখানো হচ্ছে…</div>`;
+  }
+
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('[data-nav-back]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const path = State.navPath.length ? [...State.navPath] : getTopicPath(State.activeTopic);
+      const previous = path.length > 1 ? path[path.length - 2] : null;
+      if (previous) {
+        setNavigationTopic(previous.id);
+      } else {
+        State.activeTopic = 'all';
+        State.navPath = [];
+      }
+      renderAll();
+    });
+  });
+
+  wrap.querySelectorAll('[data-nav-root]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      State.activeTopic = 'all';
+      State.navPath = [];
+      renderAll();
+    });
+  });
+
+  wrap.querySelectorAll('[data-nav-crumb]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const topicId = btn.dataset.navCrumb;
+      setNavigationTopic(topicId);
+      renderAll();
+    });
+  });
+
   wrap.querySelectorAll('[data-topic-id]').forEach(btn => {
     btn.addEventListener('click', () => {
-      State.activeTopic = btn.dataset.topicId;
+      const topicId = btn.dataset.topicId;
+      const selected = getTopicById(topicId);
+      if (!selected) return;
+
+      const children = getTopicChildren(topicId);
+      setNavigationTopic(topicId);
+
+      if (children.length === 0) {
+        State.activeTopic = String(topicId);
+        State.navPath = getTopicPath(topicId);
+      }
+
       renderAll();
     });
   });
@@ -461,6 +627,13 @@ function renderResults() {
   }
   emptyState.classList.add('hidden');
   emptyState.classList.remove('flex');
+
+  if (!State.sources.length) {
+    grid.innerHTML = '';
+    emptyState.classList.remove('hidden');
+    emptyState.classList.add('flex');
+    return;
+  }
 
   const tpl = document.getElementById('card-template');
   grid.innerHTML = '';
@@ -562,6 +735,7 @@ document.getElementById('reset-filters').addEventListener('click', () => {
   State.activeTopic = 'all';
   State.activeType = 'all';
   State.query = '';
+  State.navPath = [];
   searchInput.value = '';
   clearBtn.classList.add('hidden');
   renderAll();
