@@ -86,12 +86,18 @@
       <div class="grid gap-4 md:grid-cols-2">
         <div>
           <label class="mb-1 block text-sm font-medium text-slate-700">Topic Name</label>
-          <input name="topic_name" class="field" placeholder="উদাহরণ: ঈমান" maxlength="40" />
+          <div class="relative">
+            <input name="topic_name" class="field" placeholder="উদাহরণ: ঈমান" maxlength="40" autocomplete="off" />
+            <div id="topic-suggestions" class="absolute left-0 right-0 top-full z-20 mt-1 hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"></div>
+          </div>
         </div>
 
         <div>
           <label class="mb-1 block text-sm font-medium text-slate-700">Sub Topic</label>
-          <input name="sub_topic" class="field" placeholder="উদাহরণ: মুমিনদের বৈশিষ্ট্য" maxlength="40" />
+          <div class="relative">
+            <input name="sub_topic" class="field" placeholder="উদাহরণ: মুমিনদের বৈশিষ্ট্য" maxlength="40" autocomplete="off" />
+            <div id="subtopic-suggestions" class="absolute left-0 right-0 top-full z-20 mt-1 hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"></div>
+          </div>
         </div>
 
         <div>
@@ -246,6 +252,10 @@
       const fullscreenEditorInput = document.getElementById('fullscreen-editor-input');
       const fullscreenEditorTitle = document.getElementById('fullscreen-editor-title');
       const closeFullscreenEditor = document.getElementById('close-fullscreen-editor');
+      const topicInput = formBox.elements.topic_name;
+      const subtopicInput = formBox.elements.sub_topic;
+      const topicSuggestions = document.getElementById('topic-suggestions');
+      const subtopicSuggestions = document.getElementById('subtopic-suggestions');
       let activeExpandedField = null;
 
       function escapeHtml(value) {
@@ -263,6 +273,40 @@
           post.arabic_text, post.narrator, post.grade, post.type,
           ...(post.tags || [])
         ].filter(Boolean).join(' '));
+      }
+
+      function getAdminSuggestionValues(field, query) {
+        const normalizedQuery = normalizeAdminSearch(query);
+        const values = new Set();
+        posts.forEach(post => {
+          const value = String(post[field] || '').trim();
+          if (value && (!normalizedQuery || normalizeAdminSearch(value).includes(normalizedQuery))) values.add(value);
+        });
+        return [...values].sort((a, b) => a.localeCompare(b, 'bn')).slice(0, 8);
+      }
+
+      function renderAdminSuggestions(input, panel, field) {
+        if (!input || !panel) return;
+        const values = getAdminSuggestionValues(field, input.value);
+        panel.innerHTML = '';
+        if (!values.length) {
+          panel.classList.add('hidden');
+          return;
+        }
+        values.forEach(value => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'block w-full border-b border-slate-100 px-3 py-2 text-left text-sm text-slate-700 last:border-0 hover:bg-emerald-50 font-bn';
+          button.textContent = value;
+          button.addEventListener('mousedown', event => event.preventDefault());
+          button.addEventListener('click', () => {
+            input.value = value;
+            panel.classList.add('hidden');
+            input.focus();
+          });
+          panel.appendChild(button);
+        });
+        panel.classList.remove('hidden');
       }
 
       function getVisiblePosts() {
@@ -413,6 +457,18 @@
 
       if (cancelEdit) cancelEdit.addEventListener('click', resetEditor);
       if (adminSearch) adminSearch.addEventListener('input', event => { adminSearchQuery = event.target.value; renderPosts(); });
+      [
+        [topicInput, topicSuggestions, 'topic_name'],
+        [subtopicInput, subtopicSuggestions, 'sub_topic']
+      ].forEach(([input, panel, field]) => {
+        if (!input || !panel) return;
+        input.addEventListener('focus', () => renderAdminSuggestions(input, panel, field));
+        input.addEventListener('input', () => renderAdminSuggestions(input, panel, field));
+      });
+      document.addEventListener('click', event => {
+        if (!event.target.closest('#topic-suggestions') && event.target !== topicInput) topicSuggestions.classList.add('hidden');
+        if (!event.target.closest('#subtopic-suggestions') && event.target !== subtopicInput) subtopicSuggestions.classList.add('hidden');
+      });
       document.querySelectorAll('[data-expand-field]').forEach(button => {
         button.addEventListener('click', () => openFullscreenEditor(button.dataset.expandField, button.dataset.expandLabel));
       });
