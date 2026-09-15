@@ -60,7 +60,7 @@
       <div class="grid gap-4 md:grid-cols-2">
         <div>
           <label class="mb-1 block text-sm font-medium text-slate-700">Topic Name</label>
-          <input name="topic_name" class="field" placeholder="উদাহরণ: ঈমান" required />
+          <input name="topic_name" class="field" placeholder="উদাহরণ: ঈমান" />
         </div>
 
         <div>
@@ -70,7 +70,7 @@
 
         <div>
           <label class="mb-1 block text-sm font-medium text-slate-700">Type</label>
-          <select name="type" class="field" required>
+          <select name="type" class="field">
             <option value="quran">কুরআনের আয়াত</option>
             <option value="hadith">হাদিস</option>
             <option value="athar">আছার</option>
@@ -93,7 +93,7 @@
 
         <div class="md:col-span-2">
           <label class="mb-1 block text-sm font-medium text-slate-700">Reference</label>
-          <input name="reference" class="field" placeholder="যেমন: সূরা আল-বাকারা, আয়াত ৩-৪" required />
+          <input name="reference" class="field" placeholder="যেমন: সূরা আল-বাকারা, আয়াত ৩-৪" />
         </div>
 
         <div class="md:col-span-2">
@@ -103,7 +103,7 @@
 
         <div class="md:col-span-2">
           <label class="mb-1 block text-sm font-medium text-slate-700">Bangla Translation</label>
-          <textarea name="translation_bn" rows="3" class="field" placeholder="Translation in Bangla" required></textarea>
+          <textarea name="translation_bn" rows="3" class="field" placeholder="Translation in Bangla"></textarea>
         </div>
 
         <div class="md:col-span-2">
@@ -184,12 +184,13 @@
         document.getElementById('dashboard').classList.add('hidden');
         authBox.classList.remove('hidden');
         authBox.style.display = 'block';
-        if (formBox.reset) formBox.reset();
+        resetEditor();
         if (passwordInput) passwordInput.value = '';
         setMessage('');
       }
 
       let posts = [];
+      let currentEditId = null;
       const postsBody = document.getElementById('posts-body');
       const tableStatus = document.getElementById('table-status');
       const formHeading = document.getElementById('form-heading');
@@ -227,6 +228,7 @@
         if (!post) return;
         ['topic_name', 'sub_topic', 'type', 'title', 'reference', 'arabic_text', 'translation_bn', 'explanation', 'narrator', 'grade'].forEach(name => { formBox.elements[name].value = post[name] || ''; });
         formBox.elements.is_featured.value = String(Boolean(post.is_featured));
+        currentEditId = post.id;
         formBox.elements.id.value = post.id;
         formHeading.textContent = 'Update Source';
         cancelEdit.classList.remove('hidden');
@@ -235,15 +237,23 @@
 
       async function deletePost(id) {
         const post = posts.find(item => String(item.id) === String(id));
-        if (!post || !window.confirm(`Delete “${post.title}”?`)) return;
+        if (!post) {
+          setMessage('Delete failed: post was not found.', true);
+          return;
+        }
+        if (!window.confirm('Are you sure you want to delete this item?')) return;
+        if (!window.confirm('This action cannot be undone. Are you absolutely sure?')) return;
+
+        setMessage('Deleting post...');
         const { error } = await supabaseClient.from('sources').delete().eq('id', id);
         if (error) return setMessage(`Delete failed: ${error.message}`, true);
         setMessage('Post deleted.');
-        loadPosts();
+        await loadPosts();
       }
 
       function resetEditor() {
         formBox.reset();
+        currentEditId = null;
         formBox.elements.id.value = '';
         formHeading.textContent = 'Add New Source';
         cancelEdit.classList.add('hidden');
@@ -273,7 +283,6 @@
           }
 
           const formData = new FormData(formBox);
-          const id = formData.get('id')?.toString().trim();
           const payload = {
             topic_name: formData.get('topic_name')?.toString().trim() || '',
             sub_topic: formData.get('sub_topic')?.toString().trim() || null,
@@ -288,7 +297,7 @@
             is_featured: formData.get('is_featured') === 'true'
           };
 
-          const requiredFields = ['topic_name', 'title', 'explanation'];
+          const requiredFields = ['title', 'explanation'];
           const missing = requiredFields.filter((field) => !payload[field] || payload[field] === '');
 
           if (missing.length) {
@@ -297,15 +306,16 @@
           }
 
           try {
-            const query = id
-              ? supabaseClient.from('sources').update(payload).eq('id', id).select()
+            const wasEditing = Boolean(currentEditId);
+            const query = currentEditId
+              ? supabaseClient.from('sources').update(payload).eq('id', currentEditId).select()
               : supabaseClient.from('sources').insert([payload]).select();
             const { data, error } = await query;
             if (error) throw error;
 
+            setMessage(wasEditing ? 'Content updated successfully.' : `Content saved successfully to Supabase. ${data?.length ? 'Record inserted.' : ''}`);
             resetEditor();
-            setMessage(id ? 'Content updated successfully.' : `Content saved successfully to Supabase. ${data?.length ? 'Record inserted.' : ''}`);
-            loadPosts();
+            await loadPosts();
           } catch (err) {
             console.error('Supabase insert error:', err);
             setMessage('Submit failed. Please verify the table columns, RLS policy, and Supabase permissions.', true);
