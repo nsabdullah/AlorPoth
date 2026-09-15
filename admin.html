@@ -114,7 +114,7 @@
 
         <div class="md:col-span-2">
           <label class="mb-1 block text-sm font-medium text-slate-700">Title</label>
-          <input name="title" class="field" placeholder="Entry title" required />
+          <input name="title" class="field" placeholder="Entry title" />
         </div>
 
         <div class="md:col-span-2">
@@ -140,7 +140,7 @@
 
         <div class="md:col-span-2 expandable-field">
           <label class="mb-1 block text-sm font-medium text-slate-700">Explanation</label>
-          <textarea name="explanation" rows="4" class="field" placeholder="Explain the content clearly" required></textarea>
+          <textarea name="explanation" rows="4" class="field" placeholder="Explain the content clearly"></textarea>
           <button type="button" data-expand-field="explanation" data-expand-label="Explanation" class="absolute right-2 top-8 rounded-lg p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700" aria-label="Expand Explanation" title="Open full-screen editor">
             <span aria-hidden="true">⛶</span>
           </button>
@@ -392,14 +392,6 @@
             grade: formData.get('grade')?.toString().trim() || null,
             is_featured: formData.get('is_featured') === 'true'
           };
-
-          const requiredFields = ['title', 'explanation'];
-          const missing = requiredFields.filter((field) => !payload[field] || payload[field] === '');
-
-          if (missing.length) {
-            setMessage(`Missing required field(s): ${missing.join(', ')}`, true);
-            return;
-          }
 
           try {
             const wasEditing = Boolean(currentEditId);
