@@ -73,10 +73,6 @@
   [data-explain] { max-height: 0; overflow: hidden; transition: max-height .35s ease; }
   [data-explain].open { max-height: 2000px; }
 
-  @media (max-width: 639px) {
-    #collection-cards.collection-collapsed > div:nth-child(n + 5) { display: none; }
-  }
-
   .spin { animation: spin 0.9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -128,7 +124,7 @@
 
   <!-- Topic + type filter pills -->
   <div class="max-w-5xl mx-auto px-4 sm:px-6 pb-3.5 overflow-x-auto">
-    <div id="topic-pills" class="flex items-center gap-2 min-w-max">
+    <div id="topic-pills" class="flex items-center gap-2 min-w-max py-0.5">
       <!-- injected -->
     </div>
   </div>
@@ -142,24 +138,6 @@
 <div class="max-w-5xl mx-auto px-4 sm:px-6 mt-4">
   <div id="type-pills" class="flex items-center gap-2 flex-wrap"></div>
 </div>
-
-<!-- Topic and sub-topic collection -->
-<section class="max-w-5xl mx-auto px-4 sm:px-6 mt-4" aria-labelledby="subtopic-heading">
-  <div class="rounded-2xl border border-gold-500/20 bg-gradient-to-br from-white to-emerald-50/60 p-4 shadow-card sm:p-5">
-    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
-      <div>
-        <h2 id="subtopic-heading" class="mt-1 font-display text-lg text-emerald-900">বিষয় ও উপ-বিষয়</h2>
-        <p class="mt-1 text-xs text-slate-500 font-bn">একটি কার্ড বেছে নিয়ে নির্দিষ্ট জ্ঞানভান্ডার দেখুন</p>
-      </div>
-      <button id="back-to-all" type="button" class="hidden inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:border-emerald-400 hover:bg-emerald-50 font-bn">
-        <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> সব পোস্ট
-      </button>
-    </div>
-    <div id="collection-view-heading" class="hidden mb-4 rounded-xl border border-gold-500/25 bg-gold-500/10 px-3.5 py-3 text-sm text-emerald-900 font-bn" aria-live="polite"></div>
-    <div id="collection-cards" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-live="polite"></div>
-    <button id="collection-toggle" type="button" class="hidden sm:hidden mx-auto mt-4 rounded-full border border-emerald-200 bg-white px-4 py-2 text-xs font-medium text-emerald-700 transition hover:border-gold-400 hover:bg-gold-500/10 font-bn">সব দেখুন</button>
-  </div>
-</section>
 
 <!-- ============================= MAIN ============================= -->
 <main class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
@@ -332,7 +310,6 @@ const State = {
   activeSubTopic: '',
   query: '',
   currentView: 'all',
-  collectionExpanded: false,
   bookmarks: [],
   history: []
 };
@@ -610,30 +587,58 @@ function renderAll() {
   renderViewToggleBar();
   renderTopicPills();
   renderTypePills();
-  renderCollectionCards();
   renderResults();
 }
 
 function renderTopicPills() {
   const wrap = document.getElementById('topic-pills');
-  const topics = [{ id: 'all', name_bn: 'সব বিষয়' }, ...getUniqueTopicNames().map(name => ({ id: name, name_bn: name }))];
+  wrap.innerHTML = '';
 
-  wrap.innerHTML = topics.map(t => {
-    const active = State.activeTopic === t.id;
-    return `<button data-topic-id="${t.id}"
-      class="shrink-0 px-3.5 py-1.5 rounded-full text-[13px] font-bn font-medium transition
-      ${active ? 'bg-gold-500 text-emerald-900' : 'bg-emerald-700/50 text-emerald-50 hover:bg-emerald-700/80'}">
-      ${t.name_bn}
-    </button>`;
-  }).join('');
+  const allButton = document.createElement('button');
+  allButton.type = 'button';
+  allButton.className = `shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-bn font-medium transition ${
+    State.activeTopic === 'all' && !State.activeSubTopic ? 'bg-gold-500 text-emerald-900' : 'bg-emerald-700/50 text-emerald-50 hover:bg-emerald-700/80'
+  }`;
+  allButton.textContent = 'সব বিষয়';
+  allButton.addEventListener('click', () => selectTopicFilter('all'));
+  wrap.appendChild(allButton);
 
-  wrap.querySelectorAll('[data-topic-id]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      State.activeTopic = btn.dataset.topicId;
-      State.activeSubTopic = '';
-      renderAll();
+  getCollectionGroups().forEach(group => {
+    const topicButton = document.createElement('button');
+    topicButton.type = 'button';
+    topicButton.className = `shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-bn font-medium transition ${
+      State.activeTopic === group.name && !State.activeSubTopic ? 'bg-gold-500 text-emerald-900' : 'bg-emerald-700/50 text-emerald-50 hover:bg-emerald-700/80'
+    }`;
+    topicButton.textContent = `${group.name} · ${group.count}`;
+    topicButton.setAttribute('aria-label', `বিষয় ${group.name}, ${group.count}টি পোস্ট`);
+    topicButton.addEventListener('click', () => selectTopicFilter(group.name));
+    wrap.appendChild(topicButton);
+
+    group.subtopics.forEach(subtopic => {
+      const subtopicButton = document.createElement('button');
+      subtopicButton.type = 'button';
+      subtopicButton.className = `shrink-0 rounded-full border px-3 py-1.5 text-[12px] font-bn font-medium transition ${
+        State.activeTopic === group.name && State.activeSubTopic === subtopic.name
+          ? 'border-gold-500 bg-gold-500 text-emerald-900 shadow-sm'
+          : 'border-emerald-100 bg-emerald-50/70 text-emerald-800 hover:border-gold-400 hover:bg-gold-500/10'
+      }`;
+      subtopicButton.textContent = `${subtopic.name} · ${subtopic.count}`;
+      subtopicButton.setAttribute('aria-label', `${subtopic.name}, ${subtopic.count}টি পোস্ট (${group.name})`);
+      subtopicButton.addEventListener('click', () => selectTopicFilter(group.name, subtopic.name));
+      wrap.appendChild(subtopicButton);
     });
   });
+}
+
+function selectTopicFilter(topic, subtopic = '') {
+  State.currentView = 'all';
+  State.activeTopic = topic;
+  State.activeSubTopic = subtopic;
+  State.query = '';
+  searchInput.value = '';
+  clearBtn.classList.add('hidden');
+  searchSuggestions.classList.add('hidden');
+  renderAll();
 }
 
 function renderTypePills() {
@@ -675,88 +680,6 @@ function getCollectionGroups() {
         .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'bn'))
     }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'bn'));
-}
-
-function openCollectionView(topic, subtopic = '') {
-  State.currentView = 'all';
-  State.activeTopic = topic;
-  State.activeSubTopic = subtopic;
-  State.query = '';
-  searchInput.value = '';
-  clearBtn.classList.add('hidden');
-  searchSuggestions.classList.add('hidden');
-  renderAll();
-  document.getElementById('collection-cards').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function resetCollectionView() {
-  State.currentView = 'all';
-  State.activeTopic = 'all';
-  State.activeSubTopic = '';
-  State.query = '';
-  State.collectionExpanded = false;
-  searchInput.value = '';
-  clearBtn.classList.add('hidden');
-  searchSuggestions.classList.add('hidden');
-  renderAll();
-}
-
-function renderCollectionCards() {
-  const wrap = document.getElementById('collection-cards');
-  const backButton = document.getElementById('back-to-all');
-  const heading = document.getElementById('collection-view-heading');
-  const groups = getCollectionGroups();
-  const isFiltered = State.activeTopic !== 'all' || State.activeSubTopic;
-  const toggleButton = document.getElementById('collection-toggle');
-
-  wrap.innerHTML = '';
-  backButton.classList.toggle('hidden', !isFiltered);
-  heading.classList.toggle('hidden', !isFiltered);
-  if (isFiltered) {
-    heading.textContent = State.activeSubTopic
-      ? `নির্বাচিত সংগ্রহ: ${State.activeTopic} · ${State.activeSubTopic}`
-      : `নির্বাচিত বিষয়: ${State.activeTopic}`;
-  }
-  backButton.onclick = resetCollectionView;
-  wrap.classList.toggle('collection-collapsed', !State.collectionExpanded);
-  toggleButton.classList.toggle('hidden', groups.length <= 4);
-  toggleButton.textContent = State.collectionExpanded ? 'সংক্ষিপ্ত করুন' : 'সব দেখুন';
-  toggleButton.onclick = () => {
-    State.collectionExpanded = !State.collectionExpanded;
-    renderCollectionCards();
-  };
-
-  groups.forEach(group => {
-    const card = document.createElement('div');
-    card.className = 'rounded-xl border border-emerald-100 bg-white/90 p-3 transition hover:border-gold-400 hover:shadow-md';
-
-    const topicButton = document.createElement('button');
-    topicButton.type = 'button';
-    topicButton.className = 'flex w-full items-center justify-between gap-3 text-left font-bn';
-    topicButton.setAttribute('aria-label', `বিষয় ${group.name}, ${group.count}টি পোস্ট`);
-    topicButton.innerHTML = '<span class="flex min-w-0 items-center gap-2"><span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700"><i data-lucide="book-open" class="w-4 h-4"></i></span><span class="truncate font-semibold text-emerald-900"></span></span><span data-topic-count class="shrink-0 rounded-full bg-gold-500/15 px-2 py-1 text-[11px] font-semibold text-gold-600"></span>';
-    topicButton.querySelector('span.truncate').textContent = group.name;
-    topicButton.querySelector('[data-topic-count]').textContent = `${group.count}টি`;
-    topicButton.addEventListener('click', () => openCollectionView(group.name));
-    card.appendChild(topicButton);
-
-    if (group.subtopics.length) {
-      const subtopicList = document.createElement('div');
-      subtopicList.className = 'mt-3 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3';
-      group.subtopics.forEach(subtopic => {
-        const subtopicButton = document.createElement('button');
-        subtopicButton.type = 'button';
-        subtopicButton.className = 'rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] text-slate-600 transition hover:border-gold-400 hover:bg-gold-500/10 hover:text-emerald-800 font-bn';
-        subtopicButton.textContent = `${subtopic.name} · ${subtopic.count}`;
-        subtopicButton.setAttribute('aria-label', `${subtopic.name}, ${subtopic.count}টি পোস্ট`);
-        subtopicButton.addEventListener('click', () => openCollectionView(group.name, subtopic.name));
-        subtopicList.appendChild(subtopicButton);
-      });
-      card.appendChild(subtopicList);
-    }
-    wrap.appendChild(card);
-  });
-  lucide.createIcons();
 }
 
 function renderResults() {
@@ -955,7 +878,6 @@ clearBtn.addEventListener('click', () => {
   clearBtn.classList.add('hidden');
   searchSuggestions.classList.add('hidden');
   State.query = '';
-  State.collectionExpanded = false;
   renderResults();
   searchInput.focus();
 });
