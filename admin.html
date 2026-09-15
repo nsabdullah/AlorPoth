@@ -129,113 +129,121 @@
   </div>
 
   <script>
-    const ADMIN_PASSWORD = 'AlorPoth2026';
+    document.addEventListener('DOMContentLoaded', () => {
+      const ADMIN_PASSWORD = 'AlorPoth2026';
 
-    const supabaseUrl = 'https://hybqyfmzarxtamttyteu.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5YnF5Zm16YXJ4dGFtdHR5dGV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDUwOTEsImV4cCI6MjEwNDI4MTA5MX0.EzZbD7RshaiI86CdNkV62PNc7-6rJjdMvkX9cAmq5GY';
-    const supabase = window.supabase ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
+      const SUPABASE_URL = 'https://hybqyfmzarxtamttyteu.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5YnF5Zm16YXJ4dGFtdHR5dGV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDUwOTEsImV4cCI6MjEwNDI4MTA5MX0.EzZbD7RshaiI86CdNkV62PNc7-6rJjdMvkX9cAmq5GY';
+      const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
-    const authBox = document.getElementById('auth-box');
-    const formBox = document.getElementById('content-form');
-    const passwordInput = document.getElementById('admin-password');
-    const unlockBtn = document.getElementById('unlock-btn');
-    const logoutBtn = document.getElementById('logout-btn');
-    const formMessage = document.getElementById('form-message');
+      const authBox = document.getElementById('auth-box');
+      const formBox = document.getElementById('content-form');
+      const passwordInput = document.getElementById('admin-password');
+      const unlockBtn = document.getElementById('unlock-btn');
+      const logoutBtn = document.getElementById('logout-btn');
+      const formMessage = document.getElementById('form-message');
 
-    function setMessage(text, isError = false) {
-      if (!formMessage) return;
-      formMessage.textContent = text;
-      formMessage.className = `text-sm ${isError ? 'text-red-600' : 'text-slate-600'}`;
-    }
-
-    function unlockForm() {
-      if (!authBox || !formBox || !passwordInput) {
-        console.error('Admin form elements are missing from the page.');
-        return;
+      function setMessage(text, isError = false) {
+        if (!formMessage) return;
+        formMessage.textContent = text;
+        formMessage.className = `text-sm ${isError ? 'text-red-600' : 'text-slate-600'}`;
       }
 
-      const entered = passwordInput.value.trim();
-      if (entered !== ADMIN_PASSWORD) {
-        setMessage('Incorrect password. Only authorized users can submit.', true);
-        passwordInput.focus();
-        return;
-      }
-
-      authBox.classList.add('hidden');
-      formBox.classList.remove('hidden');
-      passwordInput.value = '';
-      setMessage('Authorized. You can now add content.');
-    }
-
-    function lockForm() {
-      if (!authBox || !formBox) return;
-      formBox.classList.add('hidden');
-      authBox.classList.remove('hidden');
-      if (formBox.reset) formBox.reset();
-      if (passwordInput) passwordInput.value = '';
-      setMessage('');
-    }
-
-    if (unlockBtn) {
-      unlockBtn.addEventListener('click', unlockForm);
-    }
-
-    if (logoutBtn) {
-      logoutBtn.addEventListener('click', lockForm);
-    }
-
-    if (passwordInput) {
-      passwordInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') unlockForm();
-      });
-    }
-
-    if (formBox) {
-      formBox.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        if (!supabase) {
-          setMessage('Supabase client failed to load. Check the JS SDK script.', true);
+      function unlockForm() {
+        if (!authBox || !formBox || !passwordInput) {
+          console.error('Admin form elements are missing from the page.');
           return;
         }
 
-        const formData = new FormData(formBox);
-        const payload = {
-          topic_name: formData.get('topic_name')?.toString().trim() || '',
-          sub_topic: formData.get('sub_topic')?.toString().trim() || null,
-          type: formData.get('type')?.toString().trim() || 'hadith',
-          title: formData.get('title')?.toString().trim() || '',
-          reference: formData.get('reference')?.toString().trim() || '',
-          arabic_text: formData.get('arabic_text')?.toString().trim() || null,
-          translation_bn: formData.get('translation_bn')?.toString().trim() || '',
-          explanation: formData.get('explanation')?.toString().trim() || '',
-          narrator: formData.get('narrator')?.toString().trim() || null,
-          grade: formData.get('grade')?.toString().trim() || null,
-          is_featured: formData.get('is_featured') === 'true',
-          sort_order: Number(formData.get('sort_order') || 1),
-          status: formData.get('status')?.toString().trim() || 'published'
-        };
-
-        const requiredFields = ['topic_name', 'title', 'reference', 'translation_bn', 'explanation'];
-        const missing = requiredFields.filter((field) => !payload[field] || payload[field] === '');
-
-        if (missing.length) {
-          setMessage(`Missing required field(s): ${missing.join(', ')}`, true);
+        const entered = passwordInput.value.trim();
+        if (entered !== ADMIN_PASSWORD) {
+          setMessage('Incorrect password. Only authorized users can submit.', true);
+          passwordInput.focus();
           return;
         }
 
-        try {
-          const { error } = await supabase.from('sources').insert([payload]);
-          if (error) throw error;
+        authBox.classList.add('hidden');
+        authBox.style.display = 'none';
+        formBox.classList.remove('hidden');
+        formBox.style.display = 'block';
+        passwordInput.value = '';
+        setMessage('Authorized. You can now add content.');
+      }
 
-          formBox.reset();
-          setMessage('Content saved successfully to Supabase.');
-        } catch (err) {
-          console.error('Supabase insert error:', err);
-          setMessage('Submit failed. Please verify table columns, RLS policies, and permissions.', true);
-        }
-      });
-    }
+      function lockForm() {
+        if (!authBox || !formBox) return;
+        formBox.classList.add('hidden');
+        formBox.style.display = 'none';
+        authBox.classList.remove('hidden');
+        authBox.style.display = 'block';
+        if (formBox.reset) formBox.reset();
+        if (passwordInput) passwordInput.value = '';
+        setMessage('');
+      }
+
+      if (unlockBtn) {
+        unlockBtn.onclick = unlockForm;
+        unlockBtn.addEventListener('click', unlockForm);
+      }
+
+      if (logoutBtn) {
+        logoutBtn.onclick = lockForm;
+        logoutBtn.addEventListener('click', lockForm);
+      }
+
+      if (passwordInput) {
+        passwordInput.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') unlockForm();
+        });
+      }
+
+      if (formBox) {
+        formBox.addEventListener('submit', async (event) => {
+          event.preventDefault();
+
+          if (!supabase) {
+            setMessage('Supabase client failed to load. Check the CDN script tag and browser console.', true);
+            return;
+          }
+
+          const formData = new FormData(formBox);
+          const payload = {
+            topic_name: formData.get('topic_name')?.toString().trim() || '',
+            sub_topic: formData.get('sub_topic')?.toString().trim() || null,
+            type: formData.get('type')?.toString().trim() || 'hadith',
+            title: formData.get('title')?.toString().trim() || '',
+            reference: formData.get('reference')?.toString().trim() || '',
+            arabic_text: formData.get('arabic_text')?.toString().trim() || null,
+            translation_bn: formData.get('translation_bn')?.toString().trim() || '',
+            explanation: formData.get('explanation')?.toString().trim() || '',
+            narrator: formData.get('narrator')?.toString().trim() || null,
+            grade: formData.get('grade')?.toString().trim() || null,
+            is_featured: formData.get('is_featured') === 'true',
+            sort_order: Number(formData.get('sort_order') || 1),
+            status: formData.get('status')?.toString().trim() || 'published'
+          };
+
+          const requiredFields = ['topic_name', 'title', 'reference', 'translation_bn', 'explanation'];
+          const missing = requiredFields.filter((field) => !payload[field] || payload[field] === '');
+
+          if (missing.length) {
+            setMessage(`Missing required field(s): ${missing.join(', ')}`, true);
+            return;
+          }
+
+          try {
+            const { data, error } = await supabase.from('sources').insert([payload]).select();
+            if (error) throw error;
+
+            formBox.reset();
+            setMessage(`Content saved successfully to Supabase. ${data?.length ? 'Record inserted.' : ''}`);
+          } catch (err) {
+            console.error('Supabase insert error:', err);
+            setMessage('Submit failed. Please verify the table columns, RLS policy, and Supabase permissions.', true);
+          }
+        });
+      }
+    });
   </script>
 </body>
 </html>
