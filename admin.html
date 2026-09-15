@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AlorPoth Admin</title>
+  <title>মৌলিক ইসলাম - Admin</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -54,7 +54,7 @@
 <body class="min-h-screen bg-[#F5F3EC] text-[#20261F]">
   <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
     <div class="mb-6 flex items-center justify-between rounded-2xl bg-[#0A2E22] px-5 py-4 text-white shadow-lg">
-      <div><h1 class="text-2xl font-bold">আলোর পথ · AlorPoth Admin</h1><p class="mt-1 text-sm text-emerald-100">কন্টেন্ট ও পাঠ-পরিসংখ্যান পরিচালনা</p></div>
+      <div><h1 class="text-2xl font-bold">মৌলিক ইসলাম · Moulik Islam Admin</h1><p class="mt-1 text-sm text-emerald-100">কন্টেন্ট ও পাঠ-পরিসংখ্যান পরিচালনা</p></div>
       <a href="index.html" class="rounded-full border border-emerald-100/30 px-3 py-2 text-xs text-emerald-50 hover:bg-emerald-700">মূল সাইট</a>
     </div>
 
@@ -182,14 +182,14 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      const ADMIN_PASSWORD = 'AlorPoth2026';
+      const ADMIN_PASSWORD = 'MoulikIslam2026';
 
       const SUPABASE_URL = 'https://hybqyfmzarxtamttyteu.supabase.co';
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5YnF5Zm16YXJ4dGFtdHR5dGV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDUwOTEsImV4cCI6MjEwNDI4MTA5MX0.EzZbD7RshaiI86CdNkV62PNc7-6rJjdMvkX9cAmq5GY';
-      const supabaseClient = window.supabase && !window.__ALORPOTH_SUPABASE_CLIENT__
+      const supabaseClient = window.supabase && !window.__MOULIK_ISLAM_SUPABASE_CLIENT__
         ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-        : window.__ALORPOTH_SUPABASE_CLIENT__;
-      if (supabaseClient) window.__ALORPOTH_SUPABASE_CLIENT__ = supabaseClient;
+        : window.__MOULIK_ISLAM_SUPABASE_CLIENT__;
+      if (supabaseClient) window.__MOULIK_ISLAM_SUPABASE_CLIENT__ = supabaseClient;
 
       const authBox = document.getElementById('auth-box');
       const formBox = document.getElementById('content-form');
