@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>আলোর পথ | AlorPoth</title>
-<meta name="description" content="আয়াত, হাদিস ও বিশদ ব্যাখ্যাসহ আলোর পথের ইসলামী জ্ঞান ভান্ডার" />
+<title>মৌলিক ইসলাম | Moulik Islam</title>
+<meta name="description" content="আয়াত, হাদিস ও বিশদ ব্যাখ্যাসহ মৌলিক ইসলামের ইসলামী জ্ঞান ভান্ডার" />
 <meta name="theme-color" content="#0B3D2E" />
 
 <!-- Fonts: Fraunces (headings) / Inter (UI) / Noto Naskh Arabic (Quran & Hadith text) / Noto Sans Bengali -->
@@ -95,7 +95,7 @@
             <i data-lucide="moon-star" class="w-4.5 h-4.5 text-emerald-900"></i>
           </div>
           <div class="leading-tight">
-            <h1 class="font-display font-semibold text-lg sm:text-xl tracking-tight">আলোর পথ <span class="text-gold-300 font-normal">· AlorPoth</span></h1>
+            <h1 class="font-display font-semibold text-lg sm:text-xl tracking-tight">মৌলিক ইসলাম <span class="text-gold-300 font-normal">· Moulik Islam</span></h1>
             <p class="text-[11px] sm:text-xs text-emerald-100/70">কুরআন, হাদিস ও ব্যাখ্যার জ্ঞানভান্ডার</p>
           </div>
         </div>
@@ -228,7 +228,7 @@
 
 <script>
 /* =====================================================================
-   আলোর পথ — AlorPoth
+  মৌলিক ইসলাম — Moulik Islam
    Vanilla JS, modular sections. Supabase for data, localStorage for cache.
    ===================================================================== */
 
@@ -238,8 +238,8 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const CACHE_KEYS = { topics: 'ilm_cache_topics', sources: 'ilm_cache_sources', ts: 'ilm_cache_ts' };
 const LOCAL_KEYS = {
-  bookmarks: 'alorpoth_bookmarks_v1',
-  history: 'alorpoth_history_v1'
+  bookmarks: 'moulik_islam_bookmarks_v1',
+  history: 'moulik_islam_history_v1'
 };
 const CACHE_TTL_MS = 1000 * 60 * 30; // 30 minutes — after this, prefer a fresh fetch but still show cache instantly
 const MAX_HISTORY_ITEMS = 6;

@@ -1,5 +1,5 @@
 -- =========================================================
---  ILM — Islamic Knowledge Platform
+--  Moulik Islam — Islamic Knowledge Platform
 --  Supabase schema (PostgreSQL)
 --  Hierarchy:  topics  ->  sources (Quran/Hadith/Athar)  ->  explanation
 -- =========================================================

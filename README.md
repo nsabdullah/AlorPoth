@@ -1,4 +1,4 @@
-# ইলম (ILM) — Islamic Knowledge Platform
+# মৌলিক ইসলাম (Moulik Islam) — Islamic Knowledge Platform
 
 A single-page, real-time Islamic knowledge platform: browse Qur'anic ayat, hadith, and their explanations (বেখ্যা), organized by topic. Built with vanilla JS, Tailwind CSS, and Supabase — no build step required.
 
