@@ -129,6 +129,10 @@
   </div>
 </header>
 
+<div class="max-w-5xl mx-auto px-4 sm:px-6 mt-4">
+  <div id="view-toggle-bar" class="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-card"></div>
+</div>
+
 <!-- Sub-category (source type) filter row -->
 <div class="max-w-5xl mx-auto px-4 sm:px-6 mt-4">
   <div id="type-pills" class="flex items-center gap-2 flex-wrap"></div>
@@ -182,6 +186,10 @@
             <i data-lucide="star" class="w-3 h-3"></i> নির্বাচিত
           </span>
         </div>
+        <button data-bookmark-btn type="button" class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 transition hover:border-gold-400 hover:text-emerald-800 font-bn" aria-label="Bookmark this item">
+          <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
+          <span data-bookmark-label>বুকমার্ক</span>
+        </button>
       </div>
 
       <h3 data-title class="font-display font-semibold text-[17px] text-emerald-900 leading-snug mb-1 font-bn"></h3>
@@ -218,7 +226,12 @@ const SUPABASE_URL = 'https://hybqyfmzarxtamttyteu.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5YnF5Zm16YXJ4dGFtdHR5dGV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDUwOTEsImV4cCI6MjEwNDI4MTA5MX0.EzZbD7RshaiI86CdNkV62PNc7-6rJjdMvkX9cAmq5GY';
 
 const CACHE_KEYS = { topics: 'ilm_cache_topics', sources: 'ilm_cache_sources', ts: 'ilm_cache_ts' };
+const LOCAL_KEYS = {
+  bookmarks: 'alorpoth_bookmarks_v1',
+  history: 'alorpoth_history_v1'
+};
 const CACHE_TTL_MS = 1000 * 60 * 30; // 30 minutes — after this, prefer a fresh fetch but still show cache instantly
+const MAX_HISTORY_ITEMS = 6;
 
 const hasValidSupabaseConfig = Boolean(
   SUPABASE_URL &&
@@ -283,56 +296,76 @@ const State = {
   activeTopic: 'all',
   activeType: 'all',
   query: '',
-  navPath: []
+  currentView: 'all',
+  bookmarks: [],
+  history: []
 };
 
-function getTopicById(topicId) {
-  if (!topicId || topicId === 'all') return null;
-  return State.topics.find(t => String(t.id) === String(topicId)) || null;
-}
-
-function getTopicChildren(parentId) {
-  const rows = State.topics || [];
-  if (!parentId || parentId === 'all') {
-    return rows.filter(t => !t.parent_id && t.parent_id !== 0 && t.parent_id !== '0');
+function loadLocalCollections() {
+  try {
+    const savedBookmarks = JSON.parse(localStorage.getItem(LOCAL_KEYS.bookmarks) || '[]');
+    const savedHistory = JSON.parse(localStorage.getItem(LOCAL_KEYS.history) || '[]');
+    State.bookmarks = Array.isArray(savedBookmarks) ? savedBookmarks : [];
+    State.history = Array.isArray(savedHistory) ? savedHistory : [];
+  } catch (e) {
+    console.warn('Could not load bookmarks/history from localStorage', e);
+    State.bookmarks = [];
+    State.history = [];
   }
-  return rows.filter(t => String(t.parent_id) === String(parentId));
 }
 
-function getTopicPath(topicId) {
-  if (!topicId || topicId === 'all') return [];
-  const path = [];
-  let currentId = topicId;
-  while (currentId) {
-    const topic = getTopicById(currentId);
-    if (!topic) break;
-    path.unshift(topic);
-    currentId = topic.parent_id || null;
+function saveLocalCollections() {
+  try {
+    localStorage.setItem(LOCAL_KEYS.bookmarks, JSON.stringify(State.bookmarks));
+    localStorage.setItem(LOCAL_KEYS.history, JSON.stringify(State.history));
+  } catch (e) {
+    console.warn('Could not save bookmarks/history to localStorage', e);
   }
-  return path;
 }
 
-function getTopicLeafSelection() {
-  if (State.activeTopic === 'all') return null;
-  const selected = getTopicById(State.activeTopic);
-  if (!selected) return null;
-  const children = getTopicChildren(selected.id);
-  if (children.length) return null;
-  return selected.id;
+function isBookmarked(sourceId) {
+  return State.bookmarks.includes(String(sourceId));
 }
 
-function setNavigationTopic(topicId) {
-  if (!topicId || topicId === 'all') {
-    State.activeTopic = 'all';
-    State.navPath = [];
-    return;
-  }
+function toggleBookmark(sourceId) {
+  const key = String(sourceId);
+  const exists = State.bookmarks.includes(key);
+  State.bookmarks = exists
+    ? State.bookmarks.filter(item => item !== key)
+    : [key, ...State.bookmarks];
+  saveLocalCollections();
+  renderAll();
+}
 
-  const selected = getTopicById(topicId);
-  if (!selected) return;
+function getSourceTopicName(item) {
+  if (!item) return 'অন্যান্য';
+  return item.topic_name || item.topic_name_bn || item.topic_name_en || 'অন্যান্য';
+}
 
-  State.activeTopic = String(topicId);
-  State.navPath = getTopicPath(topicId);
+function getUniqueTopicNames() {
+  const set = new Set();
+  (State.sources || []).forEach((item) => {
+    const name = getSourceTopicName(item);
+    if (name) set.add(name);
+  });
+  return [...set].sort((a, b) => a.localeCompare(b, 'bn'));
+}
+
+function trackReadHistory(item) {
+  if (!item || !item.id) return;
+
+  const key = String(item.id);
+  const snapshot = {
+    id: key,
+    title: item.title || 'Untitled',
+    type: item.type || 'hadith',
+    topic_name: getSourceTopicName(item),
+    readAt: Date.now()
+  };
+
+  const next = [snapshot, ...State.history.filter(entry => String(entry.id) !== key)];
+  State.history = next.slice(0, MAX_HISTORY_ITEMS);
+  saveLocalCollections();
 }
 
 /* ---------------------- 5. DATA FETCHING ---------------------- */
@@ -350,51 +383,21 @@ async function fetchFromSupabase() {
     throw new Error('Supabase client is unavailable. Check the Supabase URL and anon key in index.html.');
   }
 
-  const fetchTopics = async () => {
-    const { data, error } = await client.from('topics').select('*').order('sort_order', { ascending: true });
-    if (error) throw error;
+  const fetchSources = async () => {
+    const { data, error } = await client.from('sources').select('*').order('sort_order', { ascending: true });
+    if (error) {
+      if (isMissingTableOrViewError(error)) {
+        console.warn('Supabase sources table was not found or is inaccessible.', error);
+        return [];
+      }
+      throw error;
+    }
     return Array.isArray(data) ? data : [];
   };
 
-  const fetchSources = async () => {
-    const candidates = ['sources_with_topic', 'sources'];
-
-    for (const tableName of candidates) {
-      try {
-        const { data, error } = await client.from(tableName).select('*').order('sort_order', { ascending: true });
-        if (error) {
-          if (isMissingTableOrViewError(error)) {
-            console.warn(`Supabase table/view not found: ${tableName}. Trying fallback...`, error);
-            continue;
-          }
-          throw error;
-        }
-        return Array.isArray(data) ? data : [];
-      } catch (err) {
-        if (isMissingTableOrViewError(err)) {
-          console.warn(`Supabase table/view not found: ${tableName}. Trying fallback...`, err);
-          continue;
-        }
-        throw err;
-      }
-    }
-
-    return [];
-  };
-
   try {
-    const [topics, sources] = await Promise.all([
-      fetchTopics().catch(err => {
-        console.warn('topics query failed:', err);
-        return [];
-      }),
-      fetchSources().catch(err => {
-        console.warn('sources query failed:', err);
-        return [];
-      })
-    ]);
-
-    return { topics, sources };
+    const sources = await fetchSources();
+    return { topics: [], sources };
   } catch (err) {
     console.warn('Supabase fetch warning: returning empty data to keep the UI stable.', err);
     return { topics: [], sources: [] };
@@ -402,6 +405,8 @@ async function fetchFromSupabase() {
 }
 
 async function loadData() {
+  loadLocalCollections();
+
   const cached = Cache.load();
   if (cached) {
     State.topics = cached.topics;
@@ -434,36 +439,84 @@ async function loadData() {
 /* ---------------------- 6. FILTER + SEARCH LOGIC ---------------------- */
 function getFilteredSources() {
   const q = State.query.trim().toLowerCase();
-  const selectedLeafId = getTopicLeafSelection();
+  let list = [...State.sources];
 
-  const matchesTopic = (s) => {
-    if (State.activeTopic === 'all') return true;
-    if (selectedLeafId) return String(s.topic_id) === String(selectedLeafId);
+  if (State.currentView === 'bookmarks') {
+    const bookmarkIds = State.bookmarks.map(String);
+    list = list.filter(item => bookmarkIds.includes(String(item.id)));
+  } else if (State.currentView === 'history') {
+    const historyIds = State.history.map(item => String(item.id));
+    const seen = new Set();
+    list = State.history
+      .map(entry => list.find(item => String(item.id) === String(entry.id)))
+      .filter(Boolean)
+      .filter(item => {
+        const key = String(item.id);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    list = list.filter(item => historyIds.includes(String(item.id)));
+  }
 
-    const selectedTopic = getTopicById(State.activeTopic);
-    if (!selectedTopic) return true;
+  if (State.activeTopic !== 'all') {
+    list = list.filter(item => {
+      const topicName = getSourceTopicName(item);
+      return topicName === State.activeTopic;
+    });
+  }
 
-    if (selectedTopic.parent_id) {
-      return String(s.topic_id) === String(selectedTopic.id);
-    }
+  if (State.activeType !== 'all') {
+    list = list.filter(item => item.type === State.activeType);
+  }
 
-    return true;
-  };
+  if (!q) return list;
 
-  return State.sources.filter(s => {
-    if (!matchesTopic(s)) return false;
-    if (State.activeType !== 'all' && s.type !== State.activeType) return false;
-    if (!q) return true;
+  return list.filter(item => {
     const haystack = [
-      s.title, s.reference, s.translation_bn, s.explanation,
-      s.topic_name_bn, s.topic_name_en, s.narrator, ...(s.tags || [])
+      item.title,
+      item.reference,
+      item.translation_bn,
+      item.explanation,
+      item.arabic_text,
+      item.topic_name,
+      item.topic_name_bn,
+      item.topic_name_en,
+      item.narrator,
+      ...(item.tags || [])
     ].filter(Boolean).join(' ').toLowerCase();
     return haystack.includes(q);
   });
 }
 
+function renderViewToggleBar() {
+  const wrap = document.getElementById('view-toggle-bar');
+  const options = [
+    { key: 'all', label: 'সব কন্টেন্ট' },
+    { key: 'bookmarks', label: 'বুকমার্কড' },
+    { key: 'history', label: 'ইতিহাস / সম্প্রতি পঠিত' }
+  ];
+
+  wrap.innerHTML = options.map(option => {
+    const active = State.currentView === option.key;
+    return `
+      <button type="button" data-view-key="${option.key}" class="flex-1 min-w-[140px] rounded-xl px-3 py-2 text-sm font-medium transition font-bn ${active ? 'bg-emerald-700 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+        ${option.label}
+      </button>
+    `;
+  }).join('');
+
+  wrap.querySelectorAll('[data-view-key]').forEach(button => {
+    button.addEventListener('click', () => {
+      State.currentView = button.dataset.viewKey;
+      renderAll();
+    });
+  });
+}
+
 /* ---------------------- 7. RENDERING ---------------------- */
 function renderAll() {
+  renderViewToggleBar();
   renderTopicPills();
   renderTypePills();
   renderResults();
@@ -471,118 +524,20 @@ function renderAll() {
 
 function renderTopicPills() {
   const wrap = document.getElementById('topic-pills');
-  const hasHierarchy = State.topics.some(t => t.parent_id !== null && t.parent_id !== undefined && t.parent_id !== '');
+  const topics = [{ id: 'all', name_bn: 'সব বিষয়' }, ...getUniqueTopicNames().map(name => ({ id: name, name_bn: name }))];
 
-  if (!hasHierarchy) {
-    const items = [{ id: 'all', name_bn: 'সব বিষয়' }, ...State.topics];
-    wrap.innerHTML = items.map(t => {
-      const active = State.activeTopic === t.id;
-      return `<button data-topic-id="${t.id}"
-        class="shrink-0 px-3.5 py-1.5 rounded-full text-[13px] font-bn font-medium transition
-        ${active ? 'bg-gold-500 text-emerald-900' : 'bg-emerald-700/50 text-emerald-50 hover:bg-emerald-700/80'}">
-        ${t.name_bn}
-      </button>`;
-    }).join('');
-
-    wrap.querySelectorAll('[data-topic-id]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        State.activeTopic = btn.dataset.topicId;
-        State.navPath = [];
-        renderAll();
-      });
-    });
-    return;
-  }
-
-  const currentTopic = State.activeTopic === 'all' ? null : getTopicById(State.activeTopic);
-  const breadcrumb = State.navPath.length ? State.navPath : (currentTopic ? getTopicPath(currentTopic.id) : []);
-  const parentId = currentTopic ? currentTopic.id : null;
-  const children = parentId ? getTopicChildren(parentId) : getTopicChildren(null);
-
-  let html = '';
-
-  if (breadcrumb.length > 0) {
-    const crumbItems = breadcrumb.map((item, index) => {
-      const isLast = index === breadcrumb.length - 1;
-      const isRoot = index === 0;
-      return `
-        <button data-nav-crumb="${item.id}" class="text-[12px] font-bn ${isLast ? 'text-gold-500 font-semibold' : 'text-emerald-50/80'} ${isRoot ? 'mr-1' : 'mx-1'}">
-          ${item.name_bn || item.name_en || 'বিষয়'}
-        </button>
-      `;
-    }).join('<span class="text-emerald-100/60">/</span>');
-
-    html += `
-      <div class="flex items-center gap-2 mb-2">
-        <button data-nav-back class="px-2.5 py-1 rounded-full bg-emerald-800/70 text-[12px] text-white font-bn">← পিছনে</button>
-        <div class="flex items-center flex-wrap gap-1 text-[12px] font-bn text-emerald-50/90">${crumbItems}</div>
-      </div>
-    `;
-  } else {
-    html += `
-      <div class="flex items-center gap-2 mb-2">
-        <button data-nav-root class="px-2.5 py-1 rounded-full bg-emerald-800/70 text-[12px] text-white font-bn">সব বিষয়</button>
-      </div>
-    `;
-  }
-
-  if (children.length) {
-    html += children.map(t => `
-      <button data-topic-id="${t.id}"
-        class="shrink-0 px-3.5 py-1.5 rounded-full text-[13px] font-bn font-medium transition ${State.activeTopic === t.id ? 'bg-gold-500 text-emerald-900' : 'bg-emerald-700/50 text-emerald-50 hover:bg-emerald-700/80'}">
-        ${t.name_bn || t.name_en}
-      </button>
-    `).join('');
-  } else if (State.activeTopic !== 'all') {
-    html += `<div class="text-[12px] font-bn text-emerald-50/80">সংযুক্ত কন্টেন্ট দেখানো হচ্ছে…</div>`;
-  }
-
-  wrap.innerHTML = html;
-
-  wrap.querySelectorAll('[data-nav-back]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const path = State.navPath.length ? [...State.navPath] : getTopicPath(State.activeTopic);
-      const previous = path.length > 1 ? path[path.length - 2] : null;
-      if (previous) {
-        setNavigationTopic(previous.id);
-      } else {
-        State.activeTopic = 'all';
-        State.navPath = [];
-      }
-      renderAll();
-    });
-  });
-
-  wrap.querySelectorAll('[data-nav-root]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      State.activeTopic = 'all';
-      State.navPath = [];
-      renderAll();
-    });
-  });
-
-  wrap.querySelectorAll('[data-nav-crumb]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const topicId = btn.dataset.navCrumb;
-      setNavigationTopic(topicId);
-      renderAll();
-    });
-  });
+  wrap.innerHTML = topics.map(t => {
+    const active = State.activeTopic === t.id;
+    return `<button data-topic-id="${t.id}"
+      class="shrink-0 px-3.5 py-1.5 rounded-full text-[13px] font-bn font-medium transition
+      ${active ? 'bg-gold-500 text-emerald-900' : 'bg-emerald-700/50 text-emerald-50 hover:bg-emerald-700/80'}">
+      ${t.name_bn}
+    </button>`;
+  }).join('');
 
   wrap.querySelectorAll('[data-topic-id]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const topicId = btn.dataset.topicId;
-      const selected = getTopicById(topicId);
-      if (!selected) return;
-
-      const children = getTopicChildren(topicId);
-      setNavigationTopic(topicId);
-
-      if (children.length === 0) {
-        State.activeTopic = String(topicId);
-        State.navPath = getTopicPath(topicId);
-      }
-
+      State.activeTopic = btn.dataset.topicId;
       renderAll();
     });
   });
@@ -640,12 +595,22 @@ function renderResults() {
   results.forEach(item => {
     const node = tpl.content.cloneNode(true);
     const meta = TYPE_META[item.type] || TYPE_META.hadith;
+    const bookmarkBtn = node.querySelector('[data-bookmark-btn]');
+    const bookmarkLabel = node.querySelector('[data-bookmark-label]');
+    const isSaved = isBookmarked(item.id);
+
+    bookmarkBtn.setAttribute('aria-pressed', String(isSaved));
+    bookmarkBtn.className = `inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-medium transition font-bn ${isSaved ? 'border border-gold-200 bg-gold-500/15 text-emerald-800' : 'border border-slate-200 bg-slate-50 text-slate-600 hover:border-gold-400 hover:text-emerald-800'}`;
+    bookmarkBtn.innerHTML = `
+      <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
+      <span data-bookmark-label>${isSaved ? 'সংরক্ষিত' : 'বুকমার্ক'}</span>
+    `;
 
     const typeTag = node.querySelector('[data-type-tag]');
     typeTag.textContent = meta.label;
     typeTag.className = `inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full font-bn ${meta.classes}`;
 
-    node.querySelector('[data-topic-tag]').textContent = item.topic_name_bn || '';
+    node.querySelector('[data-topic-tag]').textContent = getSourceTopicName(item);
     if (item.is_featured) node.querySelector('[data-featured]').classList.remove('hidden');
 
     node.querySelector('[data-title]').textContent = item.title || '';
@@ -671,10 +636,23 @@ function renderResults() {
     const explainEl = node.querySelector('[data-explain]');
     const chevron = node.querySelector('[data-chevron]');
     const label = node.querySelector('[data-toggle-label]');
-    toggleBtn.addEventListener('click', () => {
+    toggleBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
       const isOpen = explainEl.classList.toggle('open');
       chevron.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
       label.textContent = isOpen ? 'ব্যাখ্যা লুকান' : 'ব্যাখ্যা দেখুন (বেখ্যা)';
+      trackReadHistory(item);
+    });
+
+    bookmarkBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      toggleBookmark(item.id);
+      trackReadHistory(item);
+    });
+
+    const article = node.querySelector('article');
+    article.addEventListener('click', () => {
+      trackReadHistory(item);
     });
 
     grid.appendChild(node);
