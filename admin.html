@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AlorPoth Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: 'Noto Sans Bengali', 'Inter', sans-serif; }
+    .field { @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+  <div class="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+    <div class="mb-6 rounded-2xl bg-emerald-800 px-5 py-4 text-white shadow-lg">
+      <h1 class="text-2xl font-bold">আলোর পথ · AlorPoth Admin</h1>
+      <p class="mt-1 text-sm text-emerald-100">নতুন কন্টেন্ট ডাটাবেসে যোগ করুন</p>
+    </div>
+
+    <div id="auth-box" class="rounded-2xl bg-white p-5 shadow-md">
+      <h2 class="mb-3 text-lg font-semibold text-slate-800">Admin Access</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-700">Password</label>
+          <input id="admin-password" type="password" class="field" placeholder="Enter admin password" />
+        </div>
+        <div class="flex items-end">
+          <button id="unlock-btn" class="w-full rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">
+            Unlock Form
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <form id="content-form" class="mt-6 hidden rounded-2xl bg-white p-5 shadow-md">
+      <div class="mb-5 flex items-center justify-between gap-3">
+        <h2 class="text-xl font-semibold text-slate-800">Add New Source</h2>
+        <button type="button" id="logout-btn" class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-emerald-500 hover:text-emerald-700">
+          Logout
+        </button>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-700">Topic Name</label>
+          <input name="topic_name" class="field" placeholder="উদাহরণ: ঈমান" required />
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-700">Sub Topic</label>
+          <input name="sub_topic" class="field" placeholder="উদাহরণ: মুমিনদের বৈশিষ্ট্য" />
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-700">Type</label>
+          <select name="type" class="field" required>
+            <option value="quran">কুরআনের আয়াত</option>
+            <option value="hadith">হাদিস</option>
+            <option value="athar">আছার</option>
+            <option value="fatwa">ফতোয়া</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-700">Featured</label>
+          <select name="is_featured" class="field">
+            <option value="false">No</option>
+            <option value="true">Yes</option>
+          </select>
+        </div>
+
+        <div class="md:col-span-2">
+          <label class="mb-1 block text-sm font-medium text-slate-700">Title</label>
+          <input name="title" class="field" placeholder="Entry title" required />
+        </div>
+
+        <div class="md:col-span-2">
+          <label class="mb-1 block text-sm font-medium text-slate-700">Reference</label>
+          <input name="reference" class="field" placeholder="যেমন: সূরা আল-বাকারা, আয়াত ৩-৪" required />
+        </div>
+
+        <div class="md:col-span-2">
+          <label class="mb-1 block text-sm font-medium text-slate-700">Arabic Text</label>
+          <textarea name="arabic_text" rows="3" class="field" placeholder="Arabic text (if available)"></textarea>
+        </div>
+
+        <div class="md:col-span-2">
+          <label class="mb-1 block text-sm font-medium text-slate-700">Bangla Translation</label>
+          <textarea name="translation_bn" rows="3" class="field" placeholder="Translation in Bangla" required></textarea>
+        </div>
+
+        <div class="md:col-span-2">
+          <label class="mb-1 block text-sm font-medium text-slate-700">Explanation</label>
+          <textarea name="explanation" rows="4" class="field" placeholder="Explain the content clearly" required></textarea>
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-700">Narrator</label>
+          <input name="narrator" class="field" placeholder="হজরত ওমর (রাঃ)" />
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-700">Grade</label>
+          <input name="grade" class="field" placeholder="সহীহ / হাসান" />
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-700">Sort Order</label>
+          <input name="sort_order" type="number" class="field" value="1" />
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-700">Status</label>
+          <select name="status" class="field">
+            <option value="published">Published</option>
+            <option value="draft">Draft</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-6 flex items-center justify-between gap-4">
+        <div id="form-message" class="text-sm text-slate-600"></div>
+        <button type="submit" class="rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">
+          Save to Supabase
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const ADMIN_PASSWORD = 'AlorPoth2026';
+
+    const supabaseUrl = 'https://hybqyfmzarxtamttyteu.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5YnF5Zm16YXJ4dGFtdHR5dGV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDUwOTEsImV4cCI6MjEwNDI4MTA5MX0.EzZbD7RshaiI86CdNkV62PNc7-6rJjdMvkX9cAmq5GY';
+    const supabase = window.supabase ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
+
+    const authBox = document.getElementById('auth-box');
+    const formBox = document.getElementById('content-form');
+    const passwordInput = document.getElementById('admin-password');
+    const unlockBtn = document.getElementById('unlock-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const formMessage = document.getElementById('form-message');
+
+    function setMessage(text, isError = false) {
+      if (!formMessage) return;
+      formMessage.textContent = text;
+      formMessage.className = `text-sm ${isError ? 'text-red-600' : 'text-slate-600'}`;
+    }
+
+    function unlockForm() {
+      if (!authBox || !formBox || !passwordInput) {
+        console.error('Admin form elements are missing from the page.');
+        return;
+      }
+
+      const entered = passwordInput.value.trim();
+      if (entered !== ADMIN_PASSWORD) {
+        setMessage('Incorrect password. Only authorized users can submit.', true);
+        passwordInput.focus();
+        return;
+      }
+
+      authBox.classList.add('hidden');
+      formBox.classList.remove('hidden');
+      passwordInput.value = '';
+      setMessage('Authorized. You can now add content.');
+    }
+
+    function lockForm() {
+      if (!authBox || !formBox) return;
+      formBox.classList.add('hidden');
+      authBox.classList.remove('hidden');
+      if (formBox.reset) formBox.reset();
+      if (passwordInput) passwordInput.value = '';
+      setMessage('');
+    }
+
+    if (unlockBtn) {
+      unlockBtn.addEventListener('click', unlockForm);
+    }
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', lockForm);
+    }
+
+    if (passwordInput) {
+      passwordInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') unlockForm();
+      });
+    }
+
+    if (formBox) {
+      formBox.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        if (!supabase) {
+          setMessage('Supabase client failed to load. Check the JS SDK script.', true);
+          return;
+        }
+
+        const formData = new FormData(formBox);
+        const payload = {
+          topic_name: formData.get('topic_name')?.toString().trim() || '',
+          sub_topic: formData.get('sub_topic')?.toString().trim() || null,
+          type: formData.get('type')?.toString().trim() || 'hadith',
+          title: formData.get('title')?.toString().trim() || '',
+          reference: formData.get('reference')?.toString().trim() || '',
+          arabic_text: formData.get('arabic_text')?.toString().trim() || null,
+          translation_bn: formData.get('translation_bn')?.toString().trim() || '',
+          explanation: formData.get('explanation')?.toString().trim() || '',
+          narrator: formData.get('narrator')?.toString().trim() || null,
+          grade: formData.get('grade')?.toString().trim() || null,
+          is_featured: formData.get('is_featured') === 'true',
+          sort_order: Number(formData.get('sort_order') || 1),
+          status: formData.get('status')?.toString().trim() || 'published'
+        };
+
+        const requiredFields = ['topic_name', 'title', 'reference', 'translation_bn', 'explanation'];
+        const missing = requiredFields.filter((field) => !payload[field] || payload[field] === '');
+
+        if (missing.length) {
+          setMessage(`Missing required field(s): ${missing.join(', ')}`, true);
+          return;
+        }
+
+        try {
+          const { error } = await supabase.from('sources').insert([payload]);
+          if (error) throw error;
+
+          formBox.reset();
+          setMessage('Content saved successfully to Supabase.');
+        } catch (err) {
+          console.error('Supabase insert error:', err);
+          setMessage('Submit failed. Please verify table columns, RLS policies, and permissions.', true);
+        }
+      });
+    }
+  </script>
+</body>
+</html>
